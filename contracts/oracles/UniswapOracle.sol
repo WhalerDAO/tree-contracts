@@ -6,7 +6,7 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
-import "../DAMOracle.sol"
+import "../DAMOracle.sol";
 
 // fixed window oracle that recomputes the average price for the entire period once every period
 // note that the price average is only guaranteed to be over at least 1 period, but may be over a longer period
@@ -44,7 +44,7 @@ contract UniswapOracle is DAMOracle {
     require(reserve0 != 0 && reserve1 != 0, "UniswapOracle: NO_RESERVES"); // ensure that there's liquidity in the pair
   }
 
-  function update() external returns (bool success) {
+  function update() external override returns (bool success) {
     (
       uint256 price0Cumulative,
       uint256 price1Cumulative,
@@ -76,6 +76,7 @@ contract UniswapOracle is DAMOracle {
   // note this will always return 0 before update has been called successfully for the first time.
   function consult(address token, uint256 amountIn)
     external
+    override
     view
     returns (uint256 amountOut)
   {

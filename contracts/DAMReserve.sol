@@ -3,4 +3,12 @@ pragma solidity 0.6.6;
 
 contract DAMReserve {
   constructor() public {}
+
+  function receiveMintedDAM(uint256 amount) external {
+
+  }
+
+  function buyAndBurnDAM(uint256 amount) external {
+    
+  }
 }

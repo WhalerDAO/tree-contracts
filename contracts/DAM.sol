@@ -6,11 +6,13 @@ import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 
 contract DAM is ERC20("DAM", "DAM"), ERC20Burnable {
   /**
-    @notice the DAMRebaser contract
+    @notice the DAMRebaser contract, can't be changed
    */
-  address public immutable rebaser;
+  address public rebaser;
 
-  constructor(address _rebaser) public {
+  function setRebaser(address _rebaser) external {
+    require(_rebaser != address(0), "DAM: invalid rebaser");
+    require(rebaser == address(0), "DAM: rebaser already set");
     rebaser = _rebaser;
   }
 
