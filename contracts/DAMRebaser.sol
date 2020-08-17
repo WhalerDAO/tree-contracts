@@ -26,7 +26,6 @@ contract DAMRebaser {
   event SetDeviationThreshold(uint256 newValue, uint256 oldValue);
   event SetRebaseMultiplier(uint256 newValue, uint256 oldValue);
   event SetOracle(address newValue, address oldValue);
-  event SetReserve(address newValue, address oldValue);
   event SetGov(address newValue, address oldValue);
 
   /**
@@ -98,7 +97,7 @@ contract DAMRebaser {
    */
   DAM public dam;
   DAMOracle public oracle;
-  DAMReserve public reserve;
+  DAMReserve public immutable reserve;
   ERC20 public immutable reserveToken;
   address public gov;
 
@@ -152,10 +151,9 @@ contract DAMRebaser {
     // rebase DAM
     if (positive) {
       // (1) if DAM price > peg, mint DAM proportional to deviation
-      // (1.1) mint DAM
-      dam.mint(address(this), supplyChangeAmount);
-      // (1.2) send DAM to reserve
-      dam.approve(address(reserve), supplyChangeAmount);
+      // (1.1) mint DAM to reserve
+      dam.mint(address(reserve), supplyChangeAmount);
+      // (1.2) let reserve perform actions with the minted DAM
       reserve.receiveMintedDAM(supplyChangeAmount);
     } else {
       // (2) if DAM price < peg, tell reserve to buy DAM at peg price & burn
@@ -255,12 +253,6 @@ contract DAMRebaser {
     require(newValue != address(0), "DAMRebaser: invalid value");
     emit SetOracle(newValue, address(oracle));
     oracle = DAMOracle(newValue);
-  }
-
-  function setReserve(address newValue) external onlyGov {
-    require(newValue != address(0), "DAMRebaser: invalid value");
-    emit SetReserve(newValue, address(reserve));
-    reserve = DAMReserve(newValue);
   }
 
   function setGov(address newValue) external onlyGov {

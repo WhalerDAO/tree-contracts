@@ -10,7 +10,7 @@ contract DAM is ERC20("DAM", "DAM"), ERC20Burnable {
    */
   address public rebaser;
 
-  function setRebaser(address _rebaser) external {
+  function initRebaser(address _rebaser) external {
     require(_rebaser != address(0), "DAM: invalid rebaser");
     require(rebaser == address(0), "DAM: rebaser already set");
     rebaser = _rebaser;
