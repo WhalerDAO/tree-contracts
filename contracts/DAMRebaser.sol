@@ -38,7 +38,7 @@ contract DAMRebaser {
   /**
     @notice the peg for DAM price, in reserve tokens
    */
-  uint256 public constant PEG = 10**18; // 1 DAM = 1 reserveTOken
+  uint256 public constant PEG = 10**18; // 1 DAM = 1 reserveToken
   /**
     @notice the precision of DAM decimals
    */
