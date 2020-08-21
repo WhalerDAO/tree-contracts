@@ -154,10 +154,10 @@ contract DAMRebaser {
       // (1.1) mint DAM to reserve
       dam.mint(address(reserve), supplyChangeAmount);
       // (1.2) let reserve perform actions with the minted DAM
-      reserve.receiveMintedDAM(supplyChangeAmount);
+      reserve.handlePositiveRebase(supplyChangeAmount);
     } else {
       // (2) if DAM price < peg, tell reserve to buy DAM at peg price & burn
-      reserve.buyAndBurnDAM(supplyChangeAmount);
+      reserve.handleNegativeRebase(supplyChangeAmount);
     }
 
     // emit rebase event

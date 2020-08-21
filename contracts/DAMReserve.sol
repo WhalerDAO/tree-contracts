@@ -103,7 +103,11 @@ contract DAMReserve {
     rewards = IDAMRewards(_rewards);
   }
 
-  function receiveMintedDAM(uint256 amount) external onlyRebaser {
+  /**
+    @notice distribute minted DAM to DAMRewards and DAMGov, and sell the rest
+    @param amount the amount of DAM minted
+   */
+  function handlePositiveRebase(uint256 amount) external onlyRebaser {
     // send DAM to DAMRewards
     uint256 rewardsCutAmount = amount.mul(rewardsCut).div(PRECISION);
     dam.transfer(address(rewards), rewardsCutAmount);
@@ -118,14 +122,22 @@ contract DAMReserve {
     _sellDAM(remainingAmount);
   }
 
-  function buyAndBurnDAM(uint256 amount) external onlyRebaser {
+  /**
+    @notice buy up DAM and burn them, and issue bonds to buy & burn DAM when reserve is inadequate
+    @param amount the amount of DAM that should be burnt
+   */
+  function handleNegativeRebase(uint256 amount) external onlyRebaser {
     // issue bonds if reserve is inadequate
-    uint256 reserveTokenBalance = reserveToken.balanceOf(address(this));
-    uint256 neededReserveTokenAmount = amount.mul(PEG).div(PRECISION);
+    uint256 affordableBuyDAMAmount = reserveToken
+      .balanceOf(address(this))
+      .mul(PRECISION)
+      .div(PEG);
     uint256 buyDAMAmount = amount;
-    if (neededReserveTokenAmount > reserveTokenBalance) {
+    if (buyDAMAmount > affordableBuyDAMAmount) {
       // use entire reserve balance to buy DAM
-      buyDAMAmount = reserveTokenBalance.mul(PRECISION).div(PEG);
+      buyDAMAmount = affordableBuyDAMAmount;
+
+      // issue bonds to buy remainder
       uint256 issueBondsAmountInDAM = amount.sub(buyDAMAmount);
       _issueDAMBonds(issueBondsAmountInDAM);
     }
@@ -140,14 +152,26 @@ contract DAMReserve {
   /**
     Utilities
    */
+  /**
+    @notice create a buy order for DAM
+    @param amount the amount of DAM to buy
+   */
   function _buyDAM(uint256 amount) internal {
     emit BuyDAM(amount);
   }
 
+  /**
+    @notice create a sell order for DAM
+    @param amount the amount of DAM to sell
+   */
   function _sellDAM(uint256 amount) internal {
     emit SellDAM(amount);
   }
 
+  /**
+    @notice issue DAMBond tokens to buy DAM
+    @param amount the amount of DAM to buy
+   */
   function _issueDAMBonds(uint256 amount) internal {
     emit IssueDAMBonds(amount);
   }
