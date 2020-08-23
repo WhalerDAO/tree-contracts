@@ -16,10 +16,6 @@ contract DAMReserve {
   /**
     Modifiers
    */
-  modifier onlyGov {
-    require(msg.sender == address(gov), "DAMReserve: not gov");
-    _;
-  }
 
   modifier onlyRebaser {
     require(msg.sender == address(rebaser), "DAMReserve: not rebaser");
@@ -29,11 +25,7 @@ contract DAMReserve {
   /**
     Events
    */
-  event BuyDAM(uint256 amount);
   event SellDAM(uint256 amount);
-  event IssueDAMBonds(uint256 amount);
-  event SetGovCut(uint256 newValue, uint256 oldValue);
-  event SetRewardsCut(uint256 newValue, uint256 oldValue);
 
   /**
     Public constants
@@ -46,22 +38,6 @@ contract DAMReserve {
     @notice the peg for DAM price, in reserve tokens
    */
   uint256 public constant PEG = 10**18; // 1 DAM = 1 reserveToken
-  /**
-    @notice the minimum value for govCut
-   */
-  uint256 public constant MIN_GOV_CUT = 1 * 10**16; // 1%
-  /**
-    @notice the maximum value for govCut
-   */
-  uint256 public constant MAX_GOV_CUT = 20 * 10**16; // 20%
-  /**
-    @notice the minimum value for rewardsCut
-   */
-  uint256 public constant MIN_REWARDS_CUT = 1 * 10**16; // 1%
-  /**
-    @notice the maximum value for rewardsCut
-   */
-  uint256 public constant MAX_REWARDS_CUT = 20 * 10**16; // 20%
 
   /**
     System parameters
@@ -69,26 +45,31 @@ contract DAMReserve {
   /**
     @notice the proportion of rebase income given to DAMGov
    */
-  uint256 public govCut;
+  uint256 public immutable govCut;
   /**
     @notice the proportion of rebase income given to DAMRewards
    */
-  uint256 public rewardsCut;
+  uint256 public immutable rewardsCut;
 
   /**
     External contracts
    */
-  DAM public dam;
+  DAM public immutable dam;
+  DAMGov public immutable gov;
+  ERC20 public immutable reserveToken;
   DAMRebaser public rebaser;
-  DAMGov public gov;
   IDAMRewards public rewards;
-  ERC20 public reserveToken;
 
   constructor(
+    uint256 _govCut,
+    uint256 _rewardsCut,
     address _dam,
     address _gov,
     address _reserveToken
   ) public {
+    govCut = _govCut;
+    rewardsCut = _rewardsCut;
+
     dam = DAM(_dam);
     gov = DAMGov(_gov);
     reserveToken = ERC20(_reserveToken);
@@ -123,77 +104,13 @@ contract DAMReserve {
   }
 
   /**
-    @notice buy up DAM and burn them, and issue bonds to buy & burn DAM when reserve is inadequate
-    @param amount the amount of DAM that should be burnt
-   */
-  function handleNegativeRebase(uint256 amount) external onlyRebaser {
-    // issue bonds if reserve is inadequate
-    uint256 affordableBuyDAMAmount = reserveToken
-      .balanceOf(address(this))
-      .mul(PRECISION)
-      .div(PEG);
-    uint256 buyDAMAmount = amount;
-    if (buyDAMAmount > affordableBuyDAMAmount) {
-      // use entire reserve balance to buy DAM
-      buyDAMAmount = affordableBuyDAMAmount;
-
-      // issue bonds to buy remainder
-      uint256 issueBondsAmountInDAM = amount.sub(buyDAMAmount);
-      _issueDAMBonds(issueBondsAmountInDAM);
-    }
-
-    // buy DAM using reserveToken
-    _buyDAM(buyDAMAmount);
-
-    // burn bought DAM
-    dam.burn(buyDAMAmount);
-  }
-
-  /**
     Utilities
    */
-  /**
-    @notice create a buy order for DAM
-    @param amount the amount of DAM to buy
-   */
-  function _buyDAM(uint256 amount) internal {
-    emit BuyDAM(amount);
-  }
-
   /**
     @notice create a sell order for DAM
     @param amount the amount of DAM to sell
    */
   function _sellDAM(uint256 amount) internal {
     emit SellDAM(amount);
-  }
-
-  /**
-    @notice issue DAMBond tokens to buy DAM
-    @param amount the amount of DAM to buy
-   */
-  function _issueDAMBonds(uint256 amount) internal {
-    emit IssueDAMBonds(amount);
-  }
-
-  /**
-    Parameter setters
-   */
-  function setGovCut(uint256 newValue) external onlyGov {
-    require(
-      newValue >= MIN_GOV_CUT && newValue <= MAX_GOV_CUT,
-      "DAMReserve: invalid value"
-    );
-    emit SetGovCut(newValue, govCut);
-    govCut = newValue;
-  }
-
-  function setRewardsCut(uint256 newValue) external onlyGov {
-    require(
-      newValue >= MIN_REWARDS_CUT && newValue <= MAX_REWARDS_CUT,
-      "DAMReserve: invalid value"
-    );
-    emit SetRewardsCut(newValue, rewardsCut);
-    rewardsCut = newValue;
   }
 }

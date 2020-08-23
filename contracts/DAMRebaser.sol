@@ -11,22 +11,9 @@ contract DAMRebaser {
   using SafeMath for uint256;
 
   /**
-    Modifiers
-   */
-  modifier onlyGov {
-    require(msg.sender == gov, "DAMRebaser: not gov");
-    _;
-  }
-
-  /**
     Events
    */
   event Rebase(uint256 damSupplyChange);
-  event SetMinimumRebaseInterval(uint256 newValue, uint256 oldValue);
-  event SetDeviationThreshold(uint256 newValue, uint256 oldValue);
-  event SetRebaseMultiplier(uint256 newValue, uint256 oldValue);
-  event SetOracle(address newValue, address oldValue);
-  event SetGov(address newValue, address oldValue);
 
   /**
     Public constants
@@ -43,30 +30,6 @@ contract DAMRebaser {
     @notice the precision of DAM decimals
    */
   uint256 public constant DAM_PRECISION = 10**18;
-  /**
-    @notice the minimum value for minimumRebaseInterval
-   */
-  uint256 public constant MIN_MINIMUM_REBASE_INTERVAL = 24 hours;
-  /**
-    @notice the maximum value for minimumRebaseInterval
-   */
-  uint256 public constant MAX_MINIMUM_REBASE_INTERVAL = 30 days;
-  /**
-    @notice the minimum value for deviationThreshold
-   */
-  uint256 public constant MIN_DEVIATION_THRESHOLD = 1 * 10**16; // 1%
-  /**
-    @notice the maximum value for deviationThreshold
-   */
-  uint256 public constant MAX_DEVIATION_THRESHOLD = 10 * 10**16; // 10%
-  /**
-    @notice the minimum value for rebaseMultiplier
-   */
-  uint256 public constant MIN_REBASE_MINT_MULTIPLIER = 1 * 10**17; // 0.1x
-  /**
-    @notice the maximum value for rebaseMultiplier
-   */
-  uint256 public constant MAX_REBASE_MINT_MULTIPLIER = 10 * 10**18; // 10x
 
   /**
     System parameters
@@ -74,15 +37,15 @@ contract DAMRebaser {
   /**
     @notice the minimum interval between rebases, in seconds
    */
-  uint256 public minimumRebaseInterval;
+  uint256 public immutable minimumRebaseInterval;
   /**
     @notice the threshold for the off peg percentage of DAM price above which rebase will occur
    */
-  uint256 public deviationThreshold;
+  uint256 public immutable deviationThreshold;
   /**
     @notice the multiplier for calculating how much DAM to mint during a rebase
    */
-  uint256 public rebaseMultiplier;
+  uint256 public immutable rebaseMultiplier;
 
   /**
     Public variables
@@ -95,11 +58,10 @@ contract DAMRebaser {
   /**
     External contracts
    */
-  DAM public dam;
-  DAMOracle public oracle;
+  DAM public immutable dam;
+  DAMOracle public immutable oracle;
   DAMReserve public immutable reserve;
   ERC20 public immutable reserveToken;
-  address public gov;
 
   constructor(
     uint256 _minimumRebaseInterval,
@@ -108,8 +70,7 @@ contract DAMRebaser {
     address _dam,
     address _oracle,
     address _reserve,
-    address _reserveToken,
-    address _gov
+    address _reserveToken
   ) public {
     minimumRebaseInterval = _minimumRebaseInterval;
     deviationThreshold = _deviationThreshold;
@@ -121,7 +82,6 @@ contract DAMRebaser {
     oracle = DAMOracle(_oracle);
     reserve = DAMReserve(_reserve);
     reserveToken = ERC20(_reserveToken);
-    gov = _gov;
   }
 
   function rebase() external {
@@ -150,14 +110,11 @@ contract DAMRebaser {
 
     // rebase DAM
     if (positive) {
-      // (1) if DAM price > peg, mint DAM proportional to deviation
-      // (1.1) mint DAM to reserve
+      // if DAM price > peg, mint DAM proportional to deviation
+      // (1) mint DAM to reserve
       dam.mint(address(reserve), supplyChangeAmount);
-      // (1.2) let reserve perform actions with the minted DAM
+      // (2) let reserve perform actions with the minted DAM
       reserve.handlePositiveRebase(supplyChangeAmount);
-    } else {
-      // (2) if DAM price < peg, tell reserve to buy DAM at peg price & burn
-      reserve.handleNegativeRebase(supplyChangeAmount);
     }
 
     // emit rebase event
@@ -214,50 +171,5 @@ contract DAMRebaser {
     return
       (rate >= PEG && rate.sub(PEG) < absoluteDeviationThreshold) ||
       (rate < PEG && PEG.sub(rate) < absoluteDeviationThreshold);
-  }
-
-  /**
-    Parameter setters
-   */
-  function setMinimumRebaseInterval(uint256 newValue) external onlyGov {
-    require(
-      newValue >= MIN_MINIMUM_REBASE_INTERVAL &&
-        newValue <= MAX_MINIMUM_REBASE_INTERVAL,
-      "DAMRebaser: invalid value"
-    );
-    emit SetMinimumRebaseInterval(newValue, minimumRebaseInterval);
-    minimumRebaseInterval = newValue;
-  }
-
-  function setDeviationThreshold(uint256 newValue) external onlyGov {
-    require(
-      newValue >= MIN_DEVIATION_THRESHOLD &&
-        newValue <= MAX_DEVIATION_THRESHOLD,
-      "DAMRebaser: invalid value"
-    );
-    emit SetDeviationThreshold(newValue, deviationThreshold);
-    deviationThreshold = newValue;
-  }
-
-  function setRebaseMultiplier(uint256 newValue) external onlyGov {
-    require(
-      newValue >= MIN_REBASE_MINT_MULTIPLIER &&
-        newValue <= MAX_REBASE_MINT_MULTIPLIER,
-      "DAMRebaser: invalid value"
-    );
-    emit SetRebaseMultiplier(newValue, rebaseMultiplier);
-    rebaseMultiplier = newValue;
-  }
-
-  function setOracle(address newValue) external onlyGov {
-    require(newValue != address(0), "DAMRebaser: invalid value");
-    emit SetOracle(newValue, address(oracle));
-    oracle = DAMOracle(newValue);
-  }
-
-  function setGov(address newValue) external onlyGov {
-    require(newValue != address(0), "DAMRebaser: invalid value");
-    emit SetGov(newValue, gov);
-    gov = newValue;
   }
 }
