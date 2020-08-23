@@ -2,12 +2,13 @@
 pragma solidity 0.6.6;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./DAM.sol";
 import "./DAMOracle.sol";
 import "./DAMReserve.sol";
 
-contract DAMRebaser {
+contract DAMRebaser is ReentrancyGuard {
   using SafeMath for uint256;
 
   /**
@@ -25,11 +26,7 @@ contract DAMRebaser {
   /**
     @notice the peg for DAM price, in reserve tokens
    */
-  uint256 public constant PEG = 10**18; // 1 DAM = 1 reserveToken
-  /**
-    @notice the precision of DAM decimals
-   */
-  uint256 public constant DAM_PRECISION = 10**18;
+  uint256 public constant PEG = 10**18; // 1 reserveToken/DAM
 
   /**
     System parameters
@@ -84,7 +81,7 @@ contract DAMRebaser {
     reserveToken = ERC20(_reserveToken);
   }
 
-  function rebase() external {
+  function rebase() external nonReentrant {
     // ensure the last rebase was not too recent
     require(
       block.timestamp > lastRebaseTimestamp.add(minimumRebaseInterval),
@@ -112,7 +109,7 @@ contract DAMRebaser {
     if (positive) {
       // if DAM price > peg, mint DAM proportional to deviation
       // (1) mint DAM to reserve
-      dam.mint(address(reserve), supplyChangeAmount);
+      dam.rebaserMint(address(reserve), supplyChangeAmount);
       // (2) let reserve perform actions with the minted DAM
       reserve.handlePositiveRebase(supplyChangeAmount);
     }
@@ -130,7 +127,7 @@ contract DAMRebaser {
    */
   function _damPrice() internal returns (uint256 price) {
     oracle.update();
-    return oracle.consult(address(dam), DAM_PRECISION);
+    return oracle.consult(address(dam), PRECISION);
   }
 
   /**
