@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./DAM.sol";
 import "./DAMRebaser.sol";
-import "./DAMGov.sol";
 import "./interfaces/IDAMRewards.sol";
 
 contract DAMReserve is ReentrancyGuard {
@@ -34,6 +33,8 @@ contract DAMReserve is ReentrancyGuard {
     uint256 burnDamAmount,
     uint256 receiveReserveTokenAmount
   );
+  event SetGovCandidate(address _newValue);
+  event SetGov(address _newValue);
 
   /**
     Public constants
@@ -62,6 +63,10 @@ contract DAMReserve is ReentrancyGuard {
     @notice the length of a DAM sale, stored in seconds
    */
   uint256 public immutable saleLength;
+  /**
+    @notice the time lock length for changing gov, stored in seconds
+   */
+  uint256 public immutable govTimelockLength;
 
   /**
     Public variables
@@ -72,12 +77,14 @@ contract DAMReserve is ReentrancyGuard {
   }
   DAMSale[] public damSales;
   uint256 public damOnSaleAmount;
+  address public govCandidate;
+  uint256 public govCandidateProposeTimestamp;
 
   /**
     External contracts
    */
   DAM public immutable dam;
-  DAMGov public immutable gov;
+  address public gov;
   ERC20 public immutable reserveToken;
   DAMRebaser public rebaser;
   IDAMRewards public rewards;
@@ -86,6 +93,7 @@ contract DAMReserve is ReentrancyGuard {
     uint256 _govCut,
     uint256 _rewardsCut,
     uint256 _saleLength,
+    uint256 _govTimelockLength,
     address _dam,
     address _gov,
     address _reserveToken
@@ -93,9 +101,10 @@ contract DAMReserve is ReentrancyGuard {
     govCut = _govCut;
     rewardsCut = _rewardsCut;
     saleLength = _saleLength;
+    govTimelockLength = _govTimelockLength;
 
     dam = DAM(_dam);
-    gov = DAMGov(_gov);
+    gov = _gov;
     reserveToken = ERC20(_reserveToken);
   }
 
@@ -190,15 +199,32 @@ contract DAMReserve is ReentrancyGuard {
     // burn DAM for msg.sender
     dam.reserveBurn(msg.sender, amount);
 
-    // give reserveToken pro rata to msg.sender
+    // give reserveToken to msg.sender based on quadratic shares
     uint256 reserveTokenBalance = reserveToken.balanceOf(address(this)).sub(
       damOnSaleAmount.mul(PEG).div(PRECISION)
     );
-    uint256 deserveAmount = reserveTokenBalance.mul(amount).div(damSupply);
+    uint256 deserveAmount = reserveTokenBalance.mul(amount.mul(amount)).div(damSupply.mul(damSupply));
     reserveToken.safeTransfer(msg.sender, deserveAmount);
 
     // emit event
     emit Ragequit(msg.sender, amount, deserveAmount);
+  }
+
+  /**
+    Param setters
+   */
+  function setGovCandidate(address _newValue) external {
+    require(msg.sender == gov, "DAMReserve: not gov");
+    govCandidate = _newValue;
+    govCandidateProposeTimestamp = block.timestamp;
+    emit SetGovCandidate(_newValue);
+  }
+
+  function setGov() external {
+    require(msg.sender == gov, "DAMReserve: not gov");
+    require(block.timestamp >= govCandidateProposeTimestamp.add(govTimelockLength));
+    gov = govCandidate;
+    emit SetGov(gov);
   }
 
   /**
