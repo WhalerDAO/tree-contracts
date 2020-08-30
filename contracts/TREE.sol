@@ -4,22 +4,22 @@ pragma solidity 0.6.6;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 
-contract DAM is ERC20("DAM", "DAM"), ERC20Burnable {
+contract TREE is ERC20("TREE", "TREE"), ERC20Burnable {
   /**
-    @notice the DAMRebaser contract
+    @notice the TREERebaser contract
    */
   address public rebaser;
   /**
-    @notice the DAMReserve contract
+    @notice the TREEReserve contract
    */
   address public reserve;
 
   function initContracts(address _rebaser, address _reserve) external {
-    require(_rebaser != address(0), "DAM: invalid rebaser");
-    require(rebaser == address(0), "DAM: rebaser already set");
+    require(_rebaser != address(0), "TREE: invalid rebaser");
+    require(rebaser == address(0), "TREE: rebaser already set");
     rebaser = _rebaser;
-    require(_reserve != address(0), "DAM: invalid reserve");
-    require(reserve == address(0), "DAM: reserve already set");
+    require(_reserve != address(0), "TREE: invalid reserve");
+    require(reserve == address(0), "TREE: reserve already set");
     reserve = _reserve;
   }
 

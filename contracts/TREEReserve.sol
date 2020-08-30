@@ -5,11 +5,11 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "./DAM.sol";
-import "./DAMRebaser.sol";
-import "./interfaces/IDAMRewards.sol";
+import "./TREE.sol";
+import "./TREERebaser.sol";
+import "./interfaces/ITREERewards.sol";
 
-contract DAMReserve is ReentrancyGuard {
+contract TREEReserve is ReentrancyGuard {
   using SafeMath for uint256;
   using SafeERC20 for ERC20;
 
@@ -18,19 +18,19 @@ contract DAMReserve is ReentrancyGuard {
    */
 
   modifier onlyRebaser {
-    require(msg.sender == address(rebaser), "DAMReserve: not rebaser");
+    require(msg.sender == address(rebaser), "TREEReserve: not rebaser");
     _;
   }
 
   /**
     Events
    */
-  event SellDAM(uint256 amount);
-  event BuyDAMFromSale(uint256 saleIdx, uint256 amount);
+  event SellTREE(uint256 amount);
+  event BuyTREEFromSale(uint256 saleIdx, uint256 amount);
   event BurnExpiredSale(uint256 saleIdx);
   event Ragequit(
     address indexed sender,
-    uint256 burnDamAmount,
+    uint256 burnTreeAmount,
     uint256 receiveReserveTokenAmount
   );
   event SetGovCandidate(address _newValue);
@@ -44,23 +44,23 @@ contract DAMReserve is ReentrancyGuard {
    */
   uint256 public constant PRECISION = 10**18;
   /**
-    @notice the peg for DAM price, in reserve tokens
+    @notice the peg for TREE price, in reserve tokens
    */
-  uint256 public constant PEG = 10**18; // 1 reserveToken/DAM
+  uint256 public constant PEG = 10**18; // 1 reserveToken/TREE
 
   /**
     System parameters
    */
   /**
-    @notice the proportion of rebase income given to DAMGov
+    @notice the proportion of rebase income given to TREEGov
    */
   uint256 public immutable govCut;
   /**
-    @notice the proportion of rebase income given to DAMRewards
+    @notice the proportion of rebase income given to TREERewards
    */
   uint256 public immutable rewardsCut;
   /**
-    @notice the length of a DAM sale, stored in seconds
+    @notice the length of a TREE sale, stored in seconds
    */
   uint256 public immutable saleLength;
   /**
@@ -71,30 +71,30 @@ contract DAMReserve is ReentrancyGuard {
   /**
     Public variables
    */
-  struct DAMSale {
+  struct TREESale {
     uint256 amount;
     uint256 expireTimestamp;
   }
-  DAMSale[] public damSales;
-  uint256 public damOnSaleAmount;
+  TREESale[] public treeSales;
+  uint256 public treeOnSaleAmount;
   address public govCandidate;
   uint256 public govCandidateProposeTimestamp;
 
   /**
     External contracts
    */
-  DAM public immutable dam;
+  TREE public immutable tree;
   address public gov;
   ERC20 public immutable reserveToken;
-  DAMRebaser public rebaser;
-  IDAMRewards public rewards;
+  TREERebaser public rebaser;
+  ITREERewards public rewards;
 
   constructor(
     uint256 _govCut,
     uint256 _rewardsCut,
     uint256 _saleLength,
     uint256 _govTimelockLength,
-    address _dam,
+    address _tree,
     address _gov,
     address _reserveToken
   ) public {
@@ -103,107 +103,107 @@ contract DAMReserve is ReentrancyGuard {
     saleLength = _saleLength;
     govTimelockLength = _govTimelockLength;
 
-    dam = DAM(_dam);
+    tree = TREE(_tree);
     gov = _gov;
     reserveToken = ERC20(_reserveToken);
   }
 
   function initContracts(address _rebaser, address _rewards) external {
-    require(_rebaser != address(0), "DAM: invalid rebaser");
-    require(address(rebaser) == address(0), "DAM: rebaser already set");
-    require(_rewards != address(0), "DAM: invalid rewards");
-    require(address(rewards) == address(0), "DAM: rewards already set");
-    rebaser = DAMRebaser(_rebaser);
-    rewards = IDAMRewards(_rewards);
+    require(_rebaser != address(0), "TREE: invalid rebaser");
+    require(address(rebaser) == address(0), "TREE: rebaser already set");
+    require(_rewards != address(0), "TREE: invalid rewards");
+    require(address(rewards) == address(0), "TREE: rewards already set");
+    rebaser = TREERebaser(_rebaser);
+    rewards = ITREERewards(_rewards);
   }
 
   /**
-    @notice distribute minted DAM to DAMRewards and DAMGov, and sell the rest
-    @param amount the amount of DAM minted
+    @notice distribute minted TREE to TREERewards and TREEGov, and sell the rest
+    @param amount the amount of TREE minted
    */
   function handlePositiveRebase(uint256 amount)
     external
     onlyRebaser
     nonReentrant
   {
-    // send DAM to DAMRewards
+    // send TREE to TREERewards
     uint256 rewardsCutAmount = amount.mul(rewardsCut).div(PRECISION);
-    dam.transfer(address(rewards), rewardsCutAmount);
-    rewards.notifyRewardAmount(rewardsCutAmount);
+    tree.transfer(address(rewards), rewardsCutAmount);
+    rewards.notifyRewartreeount(rewardsCutAmount);
 
-    // send DAM to DAMGov
+    // send TREE to TREEGov
     uint256 govCutAmount = amount.mul(govCut).div(PRECISION);
-    dam.transfer(address(gov), govCutAmount);
+    tree.transfer(address(gov), govCutAmount);
 
-    // sell remaining DAM for reserveToken
+    // sell remaining TREE for reserveToken
     uint256 remainingAmount = amount.sub(rewardsCutAmount).sub(govCutAmount);
-    _sellDAM(remainingAmount);
+    _sellTREE(remainingAmount);
   }
 
   /**
-    @notice buy DAM from an ongoing rebase sale
-    @param saleIdx the index of the sale in damSales
-    @param amount the amount of DAM to buy
+    @notice buy TREE from an ongoing rebase sale
+    @param saleIdx the index of the sale in treeSales
+    @param amount the amount of TREE to buy
    */
-  function buyDAMFromSale(uint256 saleIdx, uint256 amount)
+  function buyTREEFromSale(uint256 saleIdx, uint256 amount)
     external
     nonReentrant
   {
-    uint256 remainingSaleAmount = damSales[saleIdx].amount;
-    uint256 expireTimestamp = damSales[saleIdx].expireTimestamp;
+    uint256 remainingSaleAmount = treeSales[saleIdx].amount;
+    uint256 expireTimestamp = treeSales[saleIdx].expireTimestamp;
     require(
       amount <= remainingSaleAmount && amount > 0,
-      "DAMReserve: invalid amount"
+      "TREEReserve: invalid amount"
     );
-    require(block.timestamp < expireTimestamp, "DAMReserve: sale expired");
+    require(block.timestamp < expireTimestamp, "TREEReserve: sale expired");
 
     // transfer reserveToken from msg.sender
     uint256 payAmount = amount.mul(PEG).div(PRECISION);
     reserveToken.safeTransferFrom(msg.sender, address(this), payAmount);
 
-    // transfer DAM to msg.sender
-    dam.transfer(msg.sender, amount);
+    // transfer TREE to msg.sender
+    tree.transfer(msg.sender, amount);
 
     // update sale data
-    damSales[saleIdx].amount = remainingSaleAmount.sub(amount);
-    damOnSaleAmount = damOnSaleAmount.sub(amount);
+    treeSales[saleIdx].amount = remainingSaleAmount.sub(amount);
+    treeOnSaleAmount = treeOnSaleAmount.sub(amount);
 
     // emit event
-    emit BuyDAMFromSale(saleIdx, amount);
+    emit BuyTREEFromSale(saleIdx, amount);
   }
 
   /**
-    @notice burn the DAM locked in an expired sale
-    @param saleIdx the index of the sale in damSales
+    @notice burn the TREE locked in an expired sale
+    @param saleIdx the index of the sale in treeSales
    */
   function burnExpiredSale(uint256 saleIdx) external nonReentrant {
-    uint256 remainingSaleAmount = damSales[saleIdx].amount;
-    uint256 expireTimestamp = damSales[saleIdx].expireTimestamp;
-    require(remainingSaleAmount > 0, "DAMReserve: nothing to burn");
-    require(block.timestamp >= expireTimestamp, "DAMReserve: sale active");
+    uint256 remainingSaleAmount = treeSales[saleIdx].amount;
+    uint256 expireTimestamp = treeSales[saleIdx].expireTimestamp;
+    require(remainingSaleAmount > 0, "TREEReserve: nothing to burn");
+    require(block.timestamp >= expireTimestamp, "TREEReserve: sale active");
 
-    // burn DAM
-    dam.burn(remainingSaleAmount);
+    // burn TREE
+    tree.burn(remainingSaleAmount);
 
     // update sale data
-    delete damSales[saleIdx];
-    damOnSaleAmount = damOnSaleAmount.sub(remainingSaleAmount);
+    delete treeSales[saleIdx];
+    treeOnSaleAmount = treeOnSaleAmount.sub(remainingSaleAmount);
 
     // emit event
     emit BurnExpiredSale(saleIdx);
   }
 
   function ragequit(uint256 amount) external nonReentrant {
-    uint256 damSupply = dam.totalSupply();
+    uint256 treeSupply = tree.totalSupply();
 
-    // burn DAM for msg.sender
-    dam.reserveBurn(msg.sender, amount);
+    // burn TREE for msg.sender
+    tree.reserveBurn(msg.sender, amount);
 
     // give reserveToken to msg.sender based on quadratic shares
     uint256 reserveTokenBalance = reserveToken.balanceOf(address(this)).sub(
-      damOnSaleAmount.mul(PEG).div(PRECISION)
+      treeOnSaleAmount.mul(PEG).div(PRECISION)
     );
-    uint256 deserveAmount = reserveTokenBalance.mul(amount.mul(amount)).div(damSupply.mul(damSupply));
+    uint256 deserveAmount = reserveTokenBalance.mul(amount.mul(amount)).div(treeSupply.mul(treeSupply));
     reserveToken.safeTransfer(msg.sender, deserveAmount);
 
     // emit event
@@ -214,14 +214,14 @@ contract DAMReserve is ReentrancyGuard {
     Param setters
    */
   function setGovCandidate(address _newValue) external {
-    require(msg.sender == gov, "DAMReserve: not gov");
+    require(msg.sender == gov, "TREEReserve: not gov");
     govCandidate = _newValue;
     govCandidateProposeTimestamp = block.timestamp;
     emit SetGovCandidate(_newValue);
   }
 
   function setGov() external {
-    require(msg.sender == gov, "DAMReserve: not gov");
+    require(msg.sender == gov, "TREEReserve: not gov");
     require(block.timestamp >= govCandidateProposeTimestamp.add(govTimelockLength));
     gov = govCandidate;
     emit SetGov(gov);
@@ -231,17 +231,17 @@ contract DAMReserve is ReentrancyGuard {
     Utilities
    */
   /**
-    @notice create a sell order for DAM
-    @param amount the amount of DAM to sell
+    @notice create a sell order for TREE
+    @param amount the amount of TREE to sell
    */
-  function _sellDAM(uint256 amount) internal {
-    damSales.push(
-      DAMSale({
+  function _sellTREE(uint256 amount) internal {
+    treeSales.push(
+      TREESale({
         amount: amount,
         expireTimestamp: saleLength.add(block.timestamp)
       })
     );
-    damOnSaleAmount = damOnSaleAmount.add(amount);
-    emit SellDAM(amount);
+    treeOnSaleAmount = treeOnSaleAmount.add(amount);
+    emit SellTREE(amount);
   }
 }

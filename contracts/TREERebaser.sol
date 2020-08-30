@@ -4,17 +4,17 @@ pragma solidity 0.6.6;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "./DAM.sol";
-import "./DAMOracle.sol";
-import "./DAMReserve.sol";
+import "./TREE.sol";
+import "./TREEOracle.sol";
+import "./TREEReserve.sol";
 
-contract DAMRebaser is ReentrancyGuard {
+contract TREERebaser is ReentrancyGuard {
   using SafeMath for uint256;
 
   /**
     Events
    */
-  event Rebase(uint256 damSupplyChange);
+  event Rebase(uint256 treeSupplyChange);
 
   /**
     Public constants
@@ -24,9 +24,9 @@ contract DAMRebaser is ReentrancyGuard {
    */
   uint256 public constant PRECISION = 10**18;
   /**
-    @notice the peg for DAM price, in reserve tokens
+    @notice the peg for TREE price, in reserve tokens
    */
-  uint256 public constant PEG = 10**18; // 1 reserveToken/DAM
+  uint256 public constant PEG = 10**18; // 1 reserveToken/TREE
 
   /**
     System parameters
@@ -36,11 +36,11 @@ contract DAMRebaser is ReentrancyGuard {
    */
   uint256 public immutable minimumRebaseInterval;
   /**
-    @notice the threshold for the off peg percentage of DAM price above which rebase will occur
+    @notice the threshold for the off peg percentage of TREE price above which rebase will occur
    */
   uint256 public immutable deviationThreshold;
   /**
-    @notice the multiplier for calculating how much DAM to mint during a rebase
+    @notice the multiplier for calculating how much TREE to mint during a rebase
    */
   uint256 public immutable rebaseMultiplier;
 
@@ -55,16 +55,16 @@ contract DAMRebaser is ReentrancyGuard {
   /**
     External contracts
    */
-  DAM public immutable dam;
-  DAMOracle public immutable oracle;
-  DAMReserve public immutable reserve;
+  TREE public immutable tree;
+  TREEOracle public immutable oracle;
+  TREEReserve public immutable reserve;
   ERC20 public immutable reserveToken;
 
   constructor(
     uint256 _minimumRebaseInterval,
     uint256 _deviationThreshold,
     uint256 _rebaseMultiplier,
-    address _dam,
+    address _tree,
     address _oracle,
     address _reserve,
     address _reserveToken
@@ -75,9 +75,9 @@ contract DAMRebaser is ReentrancyGuard {
 
     lastRebaseTimestamp = block.timestamp; // have a delay between deployment and the first rebase
 
-    dam = DAM(_dam);
-    oracle = DAMOracle(_oracle);
-    reserve = DAMReserve(_reserve);
+    tree = TREE(_tree);
+    oracle = TREEOracle(_oracle);
+    reserve = TREEReserve(_reserve);
     reserveToken = ERC20(_reserveToken);
   }
 
@@ -85,32 +85,32 @@ contract DAMRebaser is ReentrancyGuard {
     // ensure the last rebase was not too recent
     require(
       block.timestamp > lastRebaseTimestamp.add(minimumRebaseInterval),
-      "DAMRebaser: last rebase too recent"
+      "TREERebaser: last rebase too recent"
     );
     lastRebaseTimestamp = block.timestamp;
 
-    // query DAM price from oracle
-    uint256 damPrice = _damPrice();
+    // query TREE price from oracle
+    uint256 treePrice = _treePrice();
 
-    // calculate DAM price off peg percentage
-    (uint256 offPegPerc, bool positive) = _computeOffPegPerc(damPrice);
+    // calculate TREE price off peg percentage
+    (uint256 offPegPerc, bool positive) = _computeOffPegPerc(treePrice);
 
-    // check whether DAM price has deviated from the peg by a proportion over the threshold
-    require(offPegPerc > 0, "DAMRebaser: not off peg");
+    // check whether TREE price has deviated from the peg by a proportion over the threshold
+    require(offPegPerc > 0, "TREERebaser: not off peg");
 
     // apply multiplier to offPegPerc
     uint256 indexDelta = offPegPerc.mul(rebaseMultiplier).div(PRECISION);
 
     // calculate the change in total supply
-    uint256 damSupply = dam.totalSupply();
-    uint256 supplyChangeAmount = damSupply.mul(indexDelta).div(PRECISION);
+    uint256 treeSupply = tree.totalSupply();
+    uint256 supplyChangeAmount = treeSupply.mul(indexDelta).div(PRECISION);
 
-    // rebase DAM
+    // rebase TREE
     if (positive) {
-      // if DAM price > peg, mint DAM proportional to deviation
-      // (1) mint DAM to reserve
-      dam.rebaserMint(address(reserve), supplyChangeAmount);
-      // (2) let reserve perform actions with the minted DAM
+      // if TREE price > peg, mint TREE proportional to deviation
+      // (1) mint TREE to reserve
+      tree.rebaserMint(address(reserve), supplyChangeAmount);
+      // (2) let reserve perform actions with the minted TREE
       reserve.handlePositiveRebase(supplyChangeAmount);
     }
 
@@ -123,11 +123,11 @@ contract DAMRebaser is ReentrancyGuard {
    */
 
   /**
-   * @return price the price of DAM in reserve tokens
+   * @return price the price of TREE in reserve tokens
    */
-  function _damPrice() internal returns (uint256 price) {
+  function _treePrice() internal returns (uint256 price) {
     oracle.update();
-    return oracle.consult(address(dam), PRECISION);
+    return oracle.consult(address(tree), PRECISION);
   }
 
   /**

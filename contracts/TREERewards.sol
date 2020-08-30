@@ -12,7 +12,7 @@ pragma solidity 0.6.6;
 /___/ \_, //_//_/\__//_//_/\__/ \__//_/ /_\_\
      /___/
 
-* Synthetix: DAMRewards.sol
+* Synthetix: TREERewards.sol
 *
 * Docs: https://docs.synthetix.io/
 *
@@ -35,7 +35,7 @@ pragma solidity 0.6.6;
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, TREEAGES OR OTHER
 * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 */
@@ -104,8 +104,8 @@ contract LPTokenWrapper {
   }
 }
 
-contract DAMRewards is LPTokenWrapper, IRewardDistributionRecipient {
-  IERC20 public dam = IERC20(0x0e2298E3B3390e3b945a5456fBf59eCc3f55DA16);
+contract TREERewards is LPTokenWrapper, IRewardDistributionRecipient {
+  IERC20 public tree = IERC20(0x0e2298E3B3390e3b945a5456fBf59eCc3f55DA16);
   uint256 public constant DURATION = 7 days;
 
   uint256 public starttime = 1597172400; // 2020-08-11 19:00:00 (UTC UTC +00:00)
@@ -194,7 +194,7 @@ contract DAMRewards is LPTokenWrapper, IRewardDistributionRecipient {
     uint256 reward = earned(msg.sender);
     if (reward > 0) {
       rewards[msg.sender] = 0;
-      dam.safeTransfer(msg.sender, reward);
+      tree.safeTransfer(msg.sender, reward);
       emit RewardPaid(msg.sender, reward);
     }
   }

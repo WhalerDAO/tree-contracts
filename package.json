@@ -1,7 +1,7 @@
 {
-  "name": "dam-contracts",
+  "name": "tree-contracts",
   "version": "1.0.0",
-  "description": "Ethereum smart contracts for DAM",
+  "description": "Ethereum smart contracts for TREE",
   "main": "buidler.config.js",
   "directories": {
     "test": "test"
