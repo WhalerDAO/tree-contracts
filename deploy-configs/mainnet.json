@@ -1,0 +1,14 @@
+{
+  "govCut": 1e17,
+  "rewardsCut": 1e17,
+  "saleLength": 259200,
+  "govTimelockLength": 259200,
+  "gov": "TODO",
+  "reserveToken": "0x5dbcF33D8c2E976c6b560249878e6F1491Bca25c",
+  "uniswapFactory": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+  "minimumRebaseInterval": 43200,
+  "deviationThreshold": 5e16,
+  "rebaseMultiplier": 1e17,
+  "lpRewardInitial": 4e22,
+  "rewardWaitTime": 86400
+}

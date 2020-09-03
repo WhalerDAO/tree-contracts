@@ -2,5 +2,5 @@
 pragma solidity 0.6.6;
 
 interface ITREERewards {
-  function notifyRewartreeount(uint256 reward) external;
+  function notifyRewardAmount(uint256 reward) external;
 }

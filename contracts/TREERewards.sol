@@ -42,9 +42,7 @@ pragma solidity 0.6.6;
 
 import "@openzeppelin/contracts/math/Math.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/GSN/Context.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -65,10 +63,6 @@ abstract contract IRewardDistributionRecipient is Ownable {
     external
     onlyOwner
   {
-    require(
-      rewardDistribution == address(0),
-      "Reward distribution already set"
-    );
     require(_rewardDistribution != address(0), "0 input");
     rewardDistribution = _rewardDistribution;
   }
@@ -78,10 +72,14 @@ contract LPTokenWrapper {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
 
-  IERC20 public stakeToken = IERC20(0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e);
+  IERC20 public stakeToken;
 
   uint256 private _totalSupply;
   mapping(address => uint256) private _balances;
+
+  constructor(address _stakeToken) public {
+    stakeToken = IERC20(_stakeToken);
+  }
 
   function totalSupply() public view returns (uint256) {
     return _totalSupply;
@@ -105,10 +103,10 @@ contract LPTokenWrapper {
 }
 
 contract TREERewards is LPTokenWrapper, IRewardDistributionRecipient {
-  IERC20 public tree = IERC20(0x0e2298E3B3390e3b945a5456fBf59eCc3f55DA16);
+  IERC20 public rewardToken;
   uint256 public constant DURATION = 7 days;
 
-  uint256 public starttime = 1597172400; // 2020-08-11 19:00:00 (UTC UTC +00:00)
+  uint256 public starttime;
   uint256 public periodFinish = 0;
   uint256 public rewardRate = 0;
   uint256 public lastUpdateTime;
@@ -134,6 +132,15 @@ contract TREERewards is LPTokenWrapper, IRewardDistributionRecipient {
       userRewardPerTokenPaid[account] = rewardPerTokenStored;
     }
     _;
+  }
+
+  constructor(
+    uint256 _starttime,
+    address _stakeToken,
+    address _rewardToken
+  ) public LPTokenWrapper(_stakeToken) {
+    starttime = _starttime;
+    rewardToken = IERC20(_rewardToken);
   }
 
   function lastTimeRewardApplicable() public view returns (uint256) {
@@ -194,7 +201,7 @@ contract TREERewards is LPTokenWrapper, IRewardDistributionRecipient {
     uint256 reward = earned(msg.sender);
     if (reward > 0) {
       rewards[msg.sender] = 0;
-      tree.safeTransfer(msg.sender, reward);
+      rewardToken.safeTransfer(msg.sender, reward);
       emit RewardPaid(msg.sender, reward);
     }
   }

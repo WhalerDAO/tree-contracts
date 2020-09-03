@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./TREE.sol";
-import "./TREEOracle.sol";
+import "./interfaces/ITREEOracle.sol";
 import "./TREEReserve.sol";
 
 contract TREERebaser is ReentrancyGuard {
@@ -56,9 +56,8 @@ contract TREERebaser is ReentrancyGuard {
     External contracts
    */
   TREE public immutable tree;
-  TREEOracle public immutable oracle;
+  ITREEOracle public immutable oracle;
   TREEReserve public immutable reserve;
-  ERC20 public immutable reserveToken;
 
   constructor(
     uint256 _minimumRebaseInterval,
@@ -66,8 +65,7 @@ contract TREERebaser is ReentrancyGuard {
     uint256 _rebaseMultiplier,
     address _tree,
     address _oracle,
-    address _reserve,
-    address _reserveToken
+    address _reserve
   ) public {
     minimumRebaseInterval = _minimumRebaseInterval;
     deviationThreshold = _deviationThreshold;
@@ -76,9 +74,8 @@ contract TREERebaser is ReentrancyGuard {
     lastRebaseTimestamp = block.timestamp; // have a delay between deployment and the first rebase
 
     tree = TREE(_tree);
-    oracle = TREEOracle(_oracle);
+    oracle = ITREEOracle(_oracle);
     reserve = TREEReserve(_reserve);
-    reserveToken = ERC20(_reserveToken);
   }
 
   function rebase() external nonReentrant {
@@ -126,7 +123,8 @@ contract TREERebaser is ReentrancyGuard {
    * @return price the price of TREE in reserve tokens
    */
   function _treePrice() internal returns (uint256 price) {
-    oracle.update();
+    bool updated = oracle.update();
+    require(updated || oracle.updated(), "TREERebaser: oracle no price");
     return oracle.consult(address(tree), PRECISION);
   }
 

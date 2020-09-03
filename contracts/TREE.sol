@@ -3,8 +3,9 @@ pragma solidity 0.6.6;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract TREE is ERC20("TREE", "TREE"), ERC20Burnable {
+contract TREE is ERC20("tree.finance", "TREE"), ERC20Burnable, Ownable {
   /**
     @notice the TREERebaser contract
    */
@@ -14,13 +15,20 @@ contract TREE is ERC20("TREE", "TREE"), ERC20Burnable {
    */
   address public reserve;
 
-  function initContracts(address _rebaser, address _reserve) external {
+  function initContracts(address _rebaser, address _reserve)
+    external
+    onlyOwner
+  {
     require(_rebaser != address(0), "TREE: invalid rebaser");
     require(rebaser == address(0), "TREE: rebaser already set");
     rebaser = _rebaser;
     require(_reserve != address(0), "TREE: invalid reserve");
     require(reserve == address(0), "TREE: reserve already set");
     reserve = _reserve;
+  }
+
+  function ownerMint(address account, uint256 amount) external onlyOwner {
+    _mint(account, amount);
   }
 
   function rebaserMint(address account, uint256 amount) external {

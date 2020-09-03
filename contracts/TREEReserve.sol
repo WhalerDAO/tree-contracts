@@ -5,11 +5,12 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./TREE.sol";
 import "./TREERebaser.sol";
 import "./interfaces/ITREERewards.sol";
 
-contract TREEReserve is ReentrancyGuard {
+contract TREEReserve is ReentrancyGuard, Ownable {
   using SafeMath for uint256;
   using SafeERC20 for ERC20;
 
@@ -28,7 +29,7 @@ contract TREEReserve is ReentrancyGuard {
   event SellTREE(uint256 amount);
   event BuyTREEFromSale(uint256 saleIdx, uint256 amount);
   event BurnExpiredSale(uint256 saleIdx);
-  event Ragequit(
+  event BurnTREE(
     address indexed sender,
     uint256 burnTreeAmount,
     uint256 receiveReserveTokenAmount
@@ -87,7 +88,7 @@ contract TREEReserve is ReentrancyGuard {
   address public gov;
   ERC20 public immutable reserveToken;
   TREERebaser public rebaser;
-  ITREERewards public rewards;
+  ITREERewards public lpRewards;
 
   constructor(
     uint256 _govCut,
@@ -108,13 +109,16 @@ contract TREEReserve is ReentrancyGuard {
     reserveToken = ERC20(_reserveToken);
   }
 
-  function initContracts(address _rebaser, address _rewards) external {
+  function initContracts(address _rebaser, address _lpRewards)
+    external
+    onlyOwner
+  {
     require(_rebaser != address(0), "TREE: invalid rebaser");
     require(address(rebaser) == address(0), "TREE: rebaser already set");
-    require(_rewards != address(0), "TREE: invalid rewards");
-    require(address(rewards) == address(0), "TREE: rewards already set");
+    require(_lpRewards != address(0), "TREE: invalid lpRewards");
+    require(address(lpRewards) == address(0), "TREE: lpRewards already set");
     rebaser = TREERebaser(_rebaser);
-    rewards = ITREERewards(_rewards);
+    lpRewards = ITREERewards(_lpRewards);
   }
 
   /**
@@ -128,8 +132,8 @@ contract TREEReserve is ReentrancyGuard {
   {
     // send TREE to TREERewards
     uint256 rewardsCutAmount = amount.mul(rewardsCut).div(PRECISION);
-    tree.transfer(address(rewards), rewardsCutAmount);
-    rewards.notifyRewartreeount(rewardsCutAmount);
+    tree.transfer(address(lpRewards), rewardsCutAmount);
+    lpRewards.notifyRewardAmount(rewardsCutAmount);
 
     // send TREE to TREEGov
     uint256 govCutAmount = amount.mul(govCut).div(PRECISION);
@@ -193,7 +197,7 @@ contract TREEReserve is ReentrancyGuard {
     emit BurnExpiredSale(saleIdx);
   }
 
-  function ragequit(uint256 amount) external nonReentrant {
+  function burnTREE(uint256 amount) external nonReentrant {
     uint256 treeSupply = tree.totalSupply();
 
     // burn TREE for msg.sender
@@ -203,11 +207,13 @@ contract TREEReserve is ReentrancyGuard {
     uint256 reserveTokenBalance = reserveToken.balanceOf(address(this)).sub(
       treeOnSaleAmount.mul(PEG).div(PRECISION)
     );
-    uint256 deserveAmount = reserveTokenBalance.mul(amount.mul(amount)).div(treeSupply.mul(treeSupply));
+    uint256 deserveAmount = reserveTokenBalance.mul(amount.mul(amount)).div(
+      treeSupply.mul(treeSupply)
+    );
     reserveToken.safeTransfer(msg.sender, deserveAmount);
 
     // emit event
-    emit Ragequit(msg.sender, amount, deserveAmount);
+    emit BurnTREE(msg.sender, amount, deserveAmount);
   }
 
   /**
@@ -222,7 +228,9 @@ contract TREEReserve is ReentrancyGuard {
 
   function setGov() external {
     require(msg.sender == gov, "TREEReserve: not gov");
-    require(block.timestamp >= govCandidateProposeTimestamp.add(govTimelockLength));
+    require(
+      block.timestamp >= govCandidateProposeTimestamp.add(govTimelockLength)
+    );
     gov = govCandidate;
     emit SetGov(gov);
   }

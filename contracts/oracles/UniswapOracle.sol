@@ -6,16 +6,16 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
-import "../TREEOracle.sol";
+import "../interfaces/ITREEOracle.sol";
 
 // fixed window oracle that recomputes the average price for the entire period once every period
 // note that the price average is only guaranteed to be over at least 1 period, but may be over a longer period
-contract UniswapOracle is TREEOracle {
+contract UniswapOracle is ITREEOracle {
   using FixedPoint for *;
 
-  uint256 public constant PERIOD = 24 hours;
+  uint256 public constant PERIOD = 12 hours;
 
-  IUniswapV2Pair immutable pair;
+  IUniswapV2Pair public immutable pair;
   address public immutable token0;
   address public immutable token1;
 
@@ -24,6 +24,8 @@ contract UniswapOracle is TREEOracle {
   uint32 public blockTimestampLast;
   FixedPoint.uq112x112 public price0Average;
   FixedPoint.uq112x112 public price1Average;
+  bool public initialized;
+  bool public override updated;
 
   constructor(
     address factory,
@@ -36,15 +38,21 @@ contract UniswapOracle is TREEOracle {
     pair = _pair;
     token0 = _pair.token0();
     token1 = _pair.token1();
-    price0CumulativeLast = _pair.price0CumulativeLast(); // fetch the current accumulated price value (1 / 0)
-    price1CumulativeLast = _pair.price1CumulativeLast(); // fetch the current accumulated price value (0 / 1)
+  }
+
+  function init() external {
+    require(!initialized, "UniswapOracle: INITIALIZED");
+    initialized = true;
+    price0CumulativeLast = pair.price0CumulativeLast(); // fetch the current accumulated price value (1 / 0)
+    price1CumulativeLast = pair.price1CumulativeLast(); // fetch the current accumulated price value (0 / 1)
     uint112 reserve0;
     uint112 reserve1;
-    (reserve0, reserve1, blockTimestampLast) = _pair.getReserves();
+    (reserve0, reserve1, blockTimestampLast) = pair.getReserves();
     require(reserve0 != 0 && reserve1 != 0, "UniswapOracle: NO_RESERVES"); // ensure that there's liquidity in the pair
   }
 
   function update() external override returns (bool success) {
+    require(initialized, "UniswapOracle: NOT_INITIALIZED");
     (
       uint256 price0Cumulative,
       uint256 price1Cumulative,
@@ -69,6 +77,7 @@ contract UniswapOracle is TREEOracle {
     price0CumulativeLast = price0Cumulative;
     price1CumulativeLast = price1Cumulative;
     blockTimestampLast = blockTimestamp;
+    updated = true;
 
     return true;
   }
