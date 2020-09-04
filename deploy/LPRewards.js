@@ -26,6 +26,7 @@ module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) =
     const treeContract = await ethers.getContractAt('TREE', treeDeployment.address)
     await lpRewardsContract.setRewardDistribution(deployer, { from: deployer })
     await treeContract.ownerMint(lpRewardsContract.address, BigNumber(config.lpRewardInitial).toFixed(), { from: deployer })
+    log(`Minted ${BigNumber(config.lpRewardInitial).div(1e18).toFixed()} TREE to LPRewards at ${deployResult.address}`)
     await lpRewardsContract.notifyRewardAmount(BigNumber(config.lpRewardInitial).toFixed(), { from: deployer })
   }
 }
