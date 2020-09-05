@@ -2,41 +2,41 @@
   {
     "symbol": "yYFI",
     "address": "0xBA2E7Fed597fd0E3e70f5130BcDbbFE06bB94fe1",
-    "treeAmount": 1e22
+    "treeAmount": 1e21
   },
   {
     "symbol": "yDAIVault",
     "address": "0xACd43E627e64355f1861cEC6d3a6688B31a6F952",
-    "treeAmount": 1e22
+    "treeAmount": 1e21
   },
   {
     "symbol": "yETH",
     "address": "0xe1237aA7f535b0CC33Fd973D66cBf830354D16c7",
-    "treeAmount": 1e22
+    "treeAmount": 1e21
   },
   {
     "symbol": "yaLINK",
     "address": "0x29E240CFD7946BA20895a7a02eDb25C210f9f324",
-    "treeAmount": 1e22
+    "treeAmount": 1e21
   },
   {
     "symbol": "SNX",
     "address": "0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f",
-    "treeAmount": 1e22
+    "treeAmount": 1e21
   },
   {
     "symbol": "LEND",
     "address": "0x80fB784B7eD66730e8b1DBd9820aFD29931aab03",
-    "treeAmount": 1e22
+    "treeAmount": 1e21
   },
   {
     "symbol": "SUSHI",
     "address": "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",
-    "treeAmount": 1e22
+    "treeAmount": 1e21
   },
   {
     "symbol": "ANT",
     "address": "0x960b236A07cf122663c4303350609A66A7B288C0",
-    "treeAmount": 1e22
+    "treeAmount": 1e21
   }
 ]

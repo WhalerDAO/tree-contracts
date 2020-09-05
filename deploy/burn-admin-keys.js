@@ -1,3 +1,5 @@
+const { default: BigNumber } = require('bignumber.js')
+
 module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) => {
   const { get, log } = deployments
   const { deployer } = await getNamedAccounts()
@@ -36,11 +38,16 @@ module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) =
     const rewardDistributionAddress = await forestContract.rewardDistribution()
     if (treeReserveDeployment.address.toLowerCase() !== rewardDistributionAddress.toLowerCase()) {
       const setRewardDistTx = await forestContract.setRewardDistribution(treeReserveDeployment.address, { from: deployer })
-      log(`Set rewardDistribution of LPRewards to TREEReserve at tx ${setRewardDistTx.hash}`)
+      log(`Set rewardDistribution of ${forestName} to TREEReserve at tx ${setRewardDistTx.hash}`)
       const burnAdminKeyTx = await forestContract.renounceOwnership({ from: deployer })
       log(`Burned ${forestName} admin key at tx ${burnAdminKeyTx.hash}`)
     }
   }
+
+  const provider = ethers.provider
+  const finalBalance = BigNumber((await provider.getBalance(deployer)).toString()).div(1e18)
+  const finalCost = BigNumber(100).minus(finalBalance)
+  log(`Stage 1 final cost: ${finalCost.toString()} ETH`)
 }
 module.exports.tags = ['burn-admin-keys', 'stage1']
 module.exports.dependencies = ['LPRewards', 'TREE', 'TREEReserve', 'Forests']

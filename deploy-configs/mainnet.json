@@ -10,6 +10,6 @@
   "minimumRebaseInterval": 43200,
   "deviationThreshold": 5e16,
   "rebaseMultiplier": 1e17,
-  "lpRewardInitial": 4e22,
-  "rewardWaitTime": 86400
+  "lpRewardInitial": 2e21,
+  "rewardStartTimestamp": 1600704000
 }
