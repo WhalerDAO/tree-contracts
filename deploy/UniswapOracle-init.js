@@ -11,5 +11,5 @@ module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) =
   }
 }
 module.exports.tags = ['UniswapOracle-init', 'stage2']
-module.exports.dependencies = ['UniswapOracle']
+module.exports.dependencies = []
 module.exports.runAtTheEnd = true

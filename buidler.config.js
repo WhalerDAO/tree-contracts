@@ -1,6 +1,10 @@
 usePlugin('@nomiclabs/buidler-waffle')
-usePlugin('@nomiclabs/buidler-ganache')
+usePlugin("@nomiclabs/buidler-ethers")
 usePlugin('buidler-deploy')
+
+extendEnvironment(bre => {
+  bre.config.mocha.timeout = 600000
+})
 
 module.exports = {
   solc: {
@@ -14,8 +18,6 @@ module.exports = {
   networks: {
     ganache: {
       url: 'http://localhost:8545',
-      fork: 'https://mainnet.infura.io/v3/2f4ac5ce683c4da09f88b2b564d44199',
-      unlockedAccounts: [],
       gasLimit: 1e7,
       gasPrice: 1e11
     }
