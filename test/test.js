@@ -1,9 +1,12 @@
 const { waffle, deployments, ethers } = require('@nomiclabs/buidler')
-const chai = require('chai')
+const { expect } = require('chai')
 const BigNumber = require('bignumber.js')
+
+const { get } = deployments
 
 const config = require('../deploy-configs/mainnet.json')
 const HOUR = 60 * 60
+const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
 
 // travel `time` seconds forward in time
 const timeTravel = (time) => {
@@ -26,7 +29,7 @@ const setupTest = deployments.createFixture(async ({ deployments, getNamedAccoun
   const usdtAddress = '0xdAC17F958D2ee523a2206206994597C13D831ec7'
   await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, usdtAddress, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
   const treeDeployment = await get('TREE')
-  const treeContract = await ethers.getContractAt('IERC20', treeDeployment.address)
+  const treeContract = await ethers.getContractAt('TREE', treeDeployment.address)
   await treeContract.approve(uniswapRouterContract.address, amount, { from: deployer })
   await yUSDContract.approve(uniswapRouterContract.address, amount, { from: deployer })
   await uniswapRouterContract.addLiquidity(treeContract.address, config.reserveToken, amount, amount, 0, 0, deployer, deadline, { from: deployer, gasLimit: 3e6 })
@@ -41,15 +44,22 @@ const setupTest = deployments.createFixture(async ({ deployments, getNamedAccoun
 })
 
 describe('TREE', () => {
+  let tree
+
   beforeEach(async () => {
     await setupTest()
+    const treeDeployment = await get('TREE')
+    tree = await ethers.getContractAt('TREE', treeDeployment.address)
   })
 
-  it('test1', async () => {
-    console.log('1')
+  it('should not have owner', async () => {
+    expect(await tree.owner()).to.equal(ZERO_ADDR)
   })
 
-  it('test2', async () => {
-    console.log('2')
+  it('should have correct reserve and rebaser addresses', async () => {
+    const reserveDeployment = await get('TREEReserve')
+    const rebaserDeployment = await get('TREERebaser')
+    expect(await tree.reserve()).to.equal(reserveDeployment.address)
+    expect(await tree.rebaser()).to.equal(rebaserDeployment.address)
   })
 })
