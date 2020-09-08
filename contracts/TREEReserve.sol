@@ -129,7 +129,6 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     uint256 expireTimestamp;
   }
   TREESale[] public treeSales;
-  uint256 public treeOnSaleAmount;
 
   /**
     External contracts
@@ -219,7 +218,6 @@ contract TREEReserve is ReentrancyGuard, Ownable {
 
     // update sale data
     treeSales[saleIdx].amount = remainingSaleAmount.sub(amount);
-    treeOnSaleAmount = treeOnSaleAmount.sub(amount);
 
     // emit event
     emit BuyTREEFromSale(saleIdx, amount);
@@ -240,7 +238,6 @@ contract TREEReserve is ReentrancyGuard, Ownable {
 
     // update sale data
     delete treeSales[saleIdx];
-    treeOnSaleAmount = treeOnSaleAmount.sub(remainingSaleAmount);
 
     // emit event
     emit BurnExpiredSale(saleIdx);
@@ -255,9 +252,7 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     tree.reserveBurn(msg.sender, amount);
 
     // give reserveToken to msg.sender based on quadratic shares
-    uint256 reserveTokenBalance = reserveToken.balanceOf(address(this)).sub(
-      treeOnSaleAmount.mul(PEG).div(PRECISION)
-    );
+    uint256 reserveTokenBalance = reserveToken.balanceOf(address(this));
     uint256 deserveAmount = reserveTokenBalance.mul(amount.mul(amount)).div(
       treeSupply.mul(treeSupply)
     );
@@ -356,7 +351,6 @@ contract TREEReserve is ReentrancyGuard, Ownable {
         expireTimestamp: saleLength.add(block.timestamp)
       })
     );
-    treeOnSaleAmount = treeOnSaleAmount.add(amount);
     emit SellTREE(amount);
   }
 }
