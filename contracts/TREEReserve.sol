@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.6.6;
 
+import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -183,7 +184,7 @@ contract TREEReserve is ReentrancyGuard, Ownable {
 
     // send TREE to charity
     uint256 charityCutAmount = amount.mul(charityCut).div(PRECISION);
-    tree.transfer(address(gov), charityCutAmount);
+    tree.transfer(address(charity), charityCutAmount);
 
     // sell remaining TREE for reserveToken
     uint256 remainingAmount = amount.sub(rewardsCutAmount).sub(
@@ -246,6 +247,8 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   }
 
   function burnTREE(uint256 amount) external nonReentrant {
+    require(!Address.isContract(msg.sender), "TREEReserve: not EOA");
+
     uint256 treeSupply = tree.totalSupply();
 
     // burn TREE for msg.sender

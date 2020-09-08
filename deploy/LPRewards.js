@@ -37,7 +37,7 @@ module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) =
   await lpRewardsContract.notifyRewardAmount(BigNumber(config.lpRewardInitial).toFixed(), { from: deployer, gasLimit: 7e4 })
 }
 module.exports.tags = ['LPRewards', 'stage1']
-module.exports.dependencies = ['TREE', 'TREERewardsFactory']
+module.exports.dependencies = ['TREE', 'TREERewardsFactory', 'UniswapPair']
 module.exports.skip = async ({ ethers, getNamedAccounts, deployments, getChainId }) => {
   const { getOrNull } = deployments
   const lpRewardsDeployment = await getOrNull('LPRewards')

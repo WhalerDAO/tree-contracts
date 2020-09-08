@@ -10,7 +10,7 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
 
   const deployResult = await deploy('TREEReserve', {
     from: deployer,
-    args: [BigNumber(config.govCut).toFixed(), BigNumber(config.rewardsCut).toFixed(), BigNumber(config.saleLength).toFixed(),
+    args: [BigNumber(config.charityCut).toFixed(), BigNumber(config.rewardsCut).toFixed(), BigNumber(config.saleLength).toFixed(),
       BigNumber(config.timelockLength).toFixed(), treeDeployment.address, config.gov, config.charity,
       config.reserveToken, lpRewardsDeployment.address]
   })
