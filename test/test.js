@@ -20,10 +20,6 @@ const timeTravel = (time) => {
   return ethers.provider.send('evm_increaseTime', [time])
 }
 
-const toBigNumber = (bn) => {
-  return BigNumber(bn.toString())
-}
-
 const setupTest = deployments.createFixture(async ({ deployments, getNamedAccounts, ethers }, options) => {
   const { get } = deployments
   const { deployer } = await getNamedAccounts()
@@ -50,7 +46,10 @@ const setupTest = deployments.createFixture(async ({ deployments, getNamedAccoun
   await oracleContract.init({ from: deployer })
 
   // wait for farming activation
-  await timeTravel(config.rewardStartTimestamp - Math.floor(Date.now() / 1e3))
+  const travelTime = config.rewardStartTimestamp - Math.floor(Date.now() / 1e3)
+  if (travelTime > 0) {
+    await timeTravel(travelTime)
+  }
 })
 
 describe('TREE', () => {
