@@ -182,7 +182,8 @@ describe('Rebasing', () => {
     // rebase
     const lpRewardsDeployment = await get('LPRewards')
     const lpRewardsTreeBalance = await tree.balanceOf(lpRewardsDeployment.address)
-    await expect(rebaser.rebase({ from: deployer, gasLimit: 1e6 })).to.emit(rebaser, 'Rebase').withArgs(expectedMintTreeAmount)
+    await expect(rebaser.rebase({ from: deployer, gasLimit: 3e5 }))
+      .to.emit(rebaser, 'Rebase').withArgs(expectedMintTreeAmount)
 
     // check TREE balances
     const expectedCharityBalance = expectedMintTreeAmount.mul(config.charityCut.toString()).div(PRECISION)
@@ -197,5 +198,134 @@ describe('Rebasing', () => {
     expect(actualLPRewardsBalanceChange).to.be.least(expectedLPRewardsBalanceChange.sub(1e9))
     expect(actualReserveBalance).to.be.most(expectedReserveBalance.add(1e9))
     expect(actualReserveBalance).to.be.least(expectedReserveBalance.sub(1e9))
+  })
+})
+
+describe('Reserve', () => {
+  let tree, rebaser, reserve
+
+  beforeEach(async () => {
+    await setupTest()
+    const treeDeployment = await get('TREE')
+    tree = await ethers.getContractAt('TREE', treeDeployment.address)
+    const rebaserDeployment = await get('TREERebaser')
+    rebaser = await ethers.getContractAt('TREERebaser', rebaserDeployment.address)
+    const reserveDeployment = await get('TREEReserve')
+    reserve = await ethers.getContractAt('TREEReserve', reserveDeployment.address)
+  })
+
+  it('should sell TREE during rebase', async () => {
+    const { deployer } = await getNamedAccounts()
+
+    // purchase yUSD
+    const yUSDContract = await ethers.getContractAt('IERC20', config.reserveToken)
+    const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', UNI_ROUTER_ADDR)
+    const wethAddress = await uniswapRouterContract.WETH()
+    const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
+    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, USDT_ADDR, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('1'), gasLimit: 3e5 })
+
+    // sell yUSD for TREE to increase TREE price
+    const amount = BigNumber(100).times(1e18).toFixed()
+    await yUSDContract.approve(UNI_ROUTER_ADDR, amount, { from: deployer })
+    await uniswapRouterContract.swapExactTokensForTokens(amount, 0, [config.reserveToken, tree.address], deployer, deadline, { from: deployer, gasLimit: 3e5 })
+
+    // wait 12 hours for oracle to activate
+    await timeTravel(12 * HOUR)
+
+    // rebase
+    await rebaser.rebase({ from: deployer, gasLimit: 3e5 })
+
+    // check sale struct data
+    const reserveTreeBalance = await tree.balanceOf(reserve.address)
+    const sale = await reserve.treeSales(0)
+    expect(sale.amount).to.be.equal(reserveTreeBalance)
+    const latestBlockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+    expect(sale.expireTimestamp).to.be.equal(latestBlockTimestamp + config.saleLength)
+
+    // buy TREE from reserve
+    const beforeTreeBalance = await tree.balanceOf(deployer)
+    let yUSDPayAmount = await yUSDContract.balanceOf(deployer)
+    if (yUSDPayAmount.gt(sale.amount)) {
+      yUSDPayAmount = sale.amount
+    }
+    await yUSDContract.approve(reserve.address, yUSDPayAmount, { from: deployer })
+    await expect(reserve.buyTREEFromSale(0, yUSDPayAmount, { from: deployer }))
+      .to.emit(reserve, 'BuyTREEFromSale').withArgs(0, yUSDPayAmount)
+
+    // check tree balance
+    const expectedDeployerTreeBalanceChange = yUSDPayAmount
+    const actualDeployerTreeBalanceChange = (await tree.balanceOf(deployer)).sub(beforeTreeBalance)
+    expect(actualDeployerTreeBalanceChange).to.be.equal(expectedDeployerTreeBalanceChange)
+
+    // check reserve balances
+    expect(sale.amount.sub((await reserve.treeSales(0)).amount)).to.be.equal(expectedDeployerTreeBalanceChange)
+    expect(await yUSDContract.balanceOf(reserve.address)).to.be.equal(yUSDPayAmount)
+    expect(reserveTreeBalance.sub(await tree.balanceOf(reserve.address))).to.be.equal(expectedDeployerTreeBalanceChange)
+  })
+
+  it('should be able to burn expired sale', async () => {
+    const { deployer } = await getNamedAccounts()
+
+    // purchase yUSD
+    const yUSDContract = await ethers.getContractAt('IERC20', config.reserveToken)
+    const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', UNI_ROUTER_ADDR)
+    const wethAddress = await uniswapRouterContract.WETH()
+    const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
+    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, USDT_ADDR, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('1'), gasLimit: 3e5 })
+
+    // sell yUSD for TREE to increase TREE price
+    const amount = BigNumber(100).times(1e18).toFixed()
+    await yUSDContract.approve(UNI_ROUTER_ADDR, amount, { from: deployer })
+    await uniswapRouterContract.swapExactTokensForTokens(amount, 0, [config.reserveToken, tree.address], deployer, deadline, { from: deployer, gasLimit: 3e5 })
+
+    // wait 12 hours for oracle to activate
+    await timeTravel(12 * HOUR)
+
+    // rebase
+    await rebaser.rebase({ from: deployer, gasLimit: 3e5 })
+
+    // burning sale should fail here
+    await expect(reserve.burnExpiredSale(0)).to.be.revertedWith('TREEReserve: sale active')
+
+    // wait for sale to expire
+    await timeTravel(config.saleLength + 1)
+
+    // burning sale should succeed here
+    await reserve.burnExpiredSale(0)
+    const sale = await reserve.treeSales(0)
+    expect(sale.amount).to.be.equal(0)
+    expect(sale.expireTimestamp).to.be.equal(0)
+    expect(await tree.balanceOf(reserve.address)).to.be.equal(0)
+  })
+
+  it('should be able to burn TREE to get reserve token', async () => {
+    const { deployer } = await getNamedAccounts()
+
+    // purchase yUSD
+    const yUSDContract = await ethers.getContractAt('IERC20', config.reserveToken)
+    const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', UNI_ROUTER_ADDR)
+    const wethAddress = await uniswapRouterContract.WETH()
+    const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
+    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, USDT_ADDR, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('1'), gasLimit: 3e5 })
+
+    // sell yUSD for TREE
+    const amount = BigNumber(10).times(1e18).toFixed()
+    await yUSDContract.approve(UNI_ROUTER_ADDR, amount, { from: deployer })
+    await uniswapRouterContract.swapExactTokensForTokens(amount, 0, [config.reserveToken, tree.address], deployer, deadline, { from: deployer, gasLimit: 3e5 })
+
+    // send yUSD to reserve
+    const reserveBalance = ethers.BigNumber.from(10).mul(PRECISION)
+    await yUSDContract.transfer(reserve.address, reserveBalance, { from: deployer })
+
+    // burn TREE balance and check return
+    const treeBalance = await tree.balanceOf(deployer)
+    expect(treeBalance).to.be.gt(0)
+    const treeTotalSupply = await tree.totalSupply()
+    const treeProportion = treeBalance.mul(PRECISION).div(treeTotalSupply)
+    const expectedBurnReturn = reserveBalance.mul(treeProportion).div(PRECISION).mul(treeProportion).div(PRECISION)
+    const yUSDBalance = await yUSDContract.balanceOf(deployer)
+    await reserve.burnTREE(treeBalance, { from: deployer })
+    const actualBurnReturn = (await yUSDContract.balanceOf(deployer)).sub(yUSDBalance)
+    expect(actualBurnReturn).to.be.equal(expectedBurnReturn)
   })
 })
