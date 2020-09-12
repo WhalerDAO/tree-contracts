@@ -16,7 +16,7 @@ TREE generates upwards price pressure using the reserve. The reserve holds the y
 
 Rather than proportional-share burning (i.e. burn x% of supply to get x% of reserve), TREE uses **quadratic burning**, where for instance if you burnt 10% of the TREE supply, you get `10% * 10% = 1%` of the reserve.
 
-Quadratic burning creates an interesting game where TREE holders are incentivized to continue holding, in anticipation of other holders burning first and increasing the value of TREE. Let's look at an example: say Alice owns 50% of all TREE, and Bob owns the other 50%. If Alice burnt all of her TREE, she would get `50% * 50% = 25%` of the reserve, and Bob, who now holds 100% of the TREE supply, would get the remaining 75%. As you can see, whoever burns **last** gets the most value from their TREEs, and whoever burns first becomes the *sucker*, so to speak.
+Quadratic burning creates an interesting game where TREE holders are incentivized to continue holding, in anticipation of other holders burning first and increasing the value of TREE. Let's look at an example: say Alice owns 50% of all TREE, and Bob owns the other 50%. If Alice burnt all of her TREE, she would get `50% * 50% = 25%` of the reserve, and Bob, who now holds 100% of the TREE supply, would get the remaining 75%. As you can see, whoever burns **last** gets the most value from their TREEs, and whoever burns first actually loses out.
 
 (You can picture this as if you burnt your TREEs, its ashes would act as nutrients and make the remaining trees grow taller :D)
 
