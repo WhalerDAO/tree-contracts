@@ -1,1 +1,1 @@
-ganache-cli -l 10000000 --unlock 0xB09f3cADedab73E60af6634aA945e357612be25C --fork https://mainnet.infura.io/v3/2f4ac5ce683c4da09f88b2b564d44199 -d
+ganache-cli -l 10000000 --unlock 0xB09f3cADedab73E60af6634aA945e357612be25C --fork https://mainnet.infura.io/v3/2f4ac5ce683c4da09f88b2b564d44199 -d -i 1
