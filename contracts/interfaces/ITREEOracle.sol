@@ -10,4 +10,8 @@ interface ITREEOracle {
     returns (uint256 amountOut);
 
   function updated() external view returns (bool);
+
+  function updateAndConsult(address token, uint256 amountIn)
+    external
+    returns (uint256 amountOut);
 }

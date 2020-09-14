@@ -98,4 +98,10 @@ contract UniswapOracle is ITREEOracle {
       amountOut = price1Average.mul(amountIn).decode144();
     }
   }
+
+  // used in frontend for checking the latest price
+  function updateAndConsult(address token, uint256 amountIn) external override returns (uint256 amountOut) {
+    this.update();
+    return this.consult(token, amountIn);
+  }
 }
