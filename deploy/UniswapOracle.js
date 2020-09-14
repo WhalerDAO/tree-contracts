@@ -1,13 +1,13 @@
 module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
   const { deploy, get, log } = deployments
   const { deployer } = await getNamedAccounts()
-  const config = require('../deploy-configs/mainnet.json')
+  const config = require('../deploy-configs/get-config')
 
   const treeDeployment = await get('TREE')
 
   const deployResult = await deploy('UniswapOracle', {
     from: deployer,
-    args: [config.uniswapFactory, treeDeployment.address, config.reserveToken]
+    args: [config.uniswapFactory, treeDeployment.address, config.reserveToken, config.oraclePeriod]
   })
   if (deployResult.newlyDeployed) {
     log(`UniswapOracle deployed at ${deployResult.address}`)

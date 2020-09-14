@@ -1,17 +1,17 @@
 {
   "charityCut": 1e17,
   "rewardsCut": 1e17,
-  "saleLength": 259200,
-  "timelockLength": 259200,
+  "saleLength": 10,
+  "timelockLength": 10,
   "gov": "0x0000000000000000000000000000000000000001",
   "charity": "0x0000000000000000000000000000000000000002",
   "reserveToken": "0x5dbcF33D8c2E976c6b560249878e6F1491Bca25c",
   "uniswapFactory": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
-  "minimumRebaseInterval": 43200,
+  "minimumRebaseInterval": 10,
   "deviationThreshold": 5e16,
   "rebaseMultiplier": 1e17,
   "lpRewardInitial": 2e21,
   "rewardStartTimestamp": 1600704000,
-  "oraclePeriod": 43200,
-  "isTesting": false
+  "oraclePeriod": 10,
+  "isTesting": true
 }

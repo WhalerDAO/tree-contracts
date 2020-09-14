@@ -14,6 +14,8 @@ This stage is when the TREE initial distribution & price discovery happens. Reba
 
 **Note**: Before you deploy anything, go through `deploy-configs/mainnet.json` and make sure the parameters are what you want, especially `gov` and `charity`.
 
+**Another note**: Ensure that `deploy-configs/network.json` has the correct network name (e.g. mainnet).
+
 #### Command
 
 ```bash

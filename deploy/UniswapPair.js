@@ -1,7 +1,7 @@
 module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) => {
   const { get, log } = deployments
   const { deployer } = await getNamedAccounts()
-  const config = require('../deploy-configs/mainnet.json')
+  const config = require('../deploy-configs/get-config')
 
   const treeDeployment = await get('TREE')
 

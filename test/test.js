@@ -4,8 +4,7 @@ const BigNumber = require('bignumber.js')
 
 const { get } = deployments
 
-const config = require('../deploy-configs/mainnet.json')
-const forests = require('../deploy-configs/forests.json')
+const config = require('../deploy-configs/get-config')
 const HOUR = 60 * 60
 const DAY = 24 * HOUR
 const PRECISION = BigNumber(1e18).toFixed()
@@ -13,7 +12,7 @@ const REG_POOL_TREES = 1e21 // 1000 TREE per regular pool
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
 const UNI_ROUTER_ADDR = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
 const SNX_ADDR = '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f'
-const USDT_ADDR = '0xdAC17F958D2ee523a2206206994597C13D831ec7'
+const YCRV_ADDR = '0xdf5e0e81dff6faf3a7e52ba697820c5e32d806a8'
 
 // travel `time` seconds forward in time
 const timeTravel = (time) => {
@@ -28,12 +27,22 @@ const setupTest = deployments.createFixture(async ({ deployments, getNamedAccoun
   await deployments.fixture('stage1')
 
   // provide liquidity to TREE-yUSD UNI-V2 pair
+
   const amount = BigNumber(100).times(1e18).toFixed()
   const yUSDContract = await ethers.getContractAt('IERC20', config.reserveToken)
   const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', UNI_ROUTER_ADDR)
   const wethAddress = await uniswapRouterContract.WETH()
   const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
-  await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, USDT_ADDR, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
+  // buy yCRV with ETH
+  await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, YCRV_ADDR], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
+  // deposit yCRV into yUSD vault
+  const yCRVContract = await ethers.getContractAt('IERC20', YCRV_ADDR)
+  const yVaultABI = [{ constant: false, inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], payable: false, stateMutability: 'nonpayable', type: 'function' }]
+  const yUSDVault = await ethers.getContractAt(yVaultABI, config.reserveToken)
+  const yCRVBalance = await yCRVContract.balanceOf(deployer)
+  await yCRVContract.approve(config.reserveToken, yCRVBalance, { from: deployer })
+  await yUSDVault.deposit(yCRVBalance, { from: deployer })
+  // add Uniswap liquidity
   const treeDeployment = await get('TREE')
   const treeContract = await ethers.getContractAt('TREE', treeDeployment.address)
   await treeContract.approve(uniswapRouterContract.address, amount, { from: deployer })
@@ -160,7 +169,15 @@ describe('Rebasing', () => {
     const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', UNI_ROUTER_ADDR)
     const wethAddress = await uniswapRouterContract.WETH()
     const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
-    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, USDT_ADDR, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('1'), gasLimit: 3e5 })
+    // buy yCRV with ETH
+    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, YCRV_ADDR], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
+    // deposit yCRV into yUSD vault
+    const yCRVContract = await ethers.getContractAt('IERC20', YCRV_ADDR)
+    const yVaultABI = [{ constant: false, inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], payable: false, stateMutability: 'nonpayable', type: 'function' }]
+    const yUSDVault = await ethers.getContractAt(yVaultABI, config.reserveToken)
+    const yCRVBalance = await yCRVContract.balanceOf(deployer)
+    await yCRVContract.approve(config.reserveToken, yCRVBalance, { from: deployer })
+    await yUSDVault.deposit(yCRVBalance, { from: deployer })
 
     // sell yUSD for TREE
     const amount = BigNumber(100).times(1e18).toFixed()
@@ -221,7 +238,15 @@ describe('Reserve', () => {
     const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', UNI_ROUTER_ADDR)
     const wethAddress = await uniswapRouterContract.WETH()
     const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
-    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, USDT_ADDR, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('1'), gasLimit: 3e5 })
+    // buy yCRV with ETH
+    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, YCRV_ADDR], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
+    // deposit yCRV into yUSD vault
+    const yCRVContract = await ethers.getContractAt('IERC20', YCRV_ADDR)
+    const yVaultABI = [{ constant: false, inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], payable: false, stateMutability: 'nonpayable', type: 'function' }]
+    const yUSDVault = await ethers.getContractAt(yVaultABI, config.reserveToken)
+    const yCRVBalance = await yCRVContract.balanceOf(deployer)
+    await yCRVContract.approve(config.reserveToken, yCRVBalance, { from: deployer })
+    await yUSDVault.deposit(yCRVBalance, { from: deployer })
 
     // sell yUSD for TREE to increase TREE price
     const amount = BigNumber(100).times(1e18).toFixed()
@@ -270,7 +295,15 @@ describe('Reserve', () => {
     const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', UNI_ROUTER_ADDR)
     const wethAddress = await uniswapRouterContract.WETH()
     const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
-    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, USDT_ADDR, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('1'), gasLimit: 3e5 })
+    // buy yCRV with ETH
+    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, YCRV_ADDR], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
+    // deposit yCRV into yUSD vault
+    const yCRVContract = await ethers.getContractAt('IERC20', YCRV_ADDR)
+    const yVaultABI = [{ constant: false, inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], payable: false, stateMutability: 'nonpayable', type: 'function' }]
+    const yUSDVault = await ethers.getContractAt(yVaultABI, config.reserveToken)
+    const yCRVBalance = await yCRVContract.balanceOf(deployer)
+    await yCRVContract.approve(config.reserveToken, yCRVBalance, { from: deployer })
+    await yUSDVault.deposit(yCRVBalance, { from: deployer })
 
     // sell yUSD for TREE to increase TREE price
     const amount = BigNumber(100).times(1e18).toFixed()
@@ -305,7 +338,15 @@ describe('Reserve', () => {
     const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', UNI_ROUTER_ADDR)
     const wethAddress = await uniswapRouterContract.WETH()
     const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
-    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, USDT_ADDR, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('1'), gasLimit: 3e5 })
+    // buy yCRV with ETH
+    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, YCRV_ADDR], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
+    // deposit yCRV into yUSD vault
+    const yCRVContract = await ethers.getContractAt('IERC20', YCRV_ADDR)
+    const yVaultABI = [{ constant: false, inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], payable: false, stateMutability: 'nonpayable', type: 'function' }]
+    const yUSDVault = await ethers.getContractAt(yVaultABI, config.reserveToken)
+    const yCRVBalance = await yCRVContract.balanceOf(deployer)
+    await yCRVContract.approve(config.reserveToken, yCRVBalance, { from: deployer })
+    await yUSDVault.deposit(yCRVBalance, { from: deployer })
 
     // sell yUSD for TREE
     const amount = BigNumber(10).times(1e18).toFixed()

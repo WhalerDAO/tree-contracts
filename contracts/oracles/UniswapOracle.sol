@@ -13,7 +13,7 @@ import "../interfaces/ITREEOracle.sol";
 contract UniswapOracle is ITREEOracle {
   using FixedPoint for *;
 
-  uint256 public constant PERIOD = 12 hours;
+  uint256 public PERIOD;
 
   IUniswapV2Pair public immutable pair;
   address public immutable token0;
@@ -30,7 +30,8 @@ contract UniswapOracle is ITREEOracle {
   constructor(
     address factory,
     address tokenA,
-    address tokenB
+    address tokenB,
+    uint256 period
   ) public {
     IUniswapV2Pair _pair = IUniswapV2Pair(
       UniswapV2Library.pairFor(factory, tokenA, tokenB)
@@ -38,6 +39,7 @@ contract UniswapOracle is ITREEOracle {
     pair = _pair;
     token0 = _pair.token0();
     token1 = _pair.token1();
+    PERIOD = period;
   }
 
   function init() external {

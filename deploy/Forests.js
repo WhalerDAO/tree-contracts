@@ -3,7 +3,7 @@ const BigNumber = require('bignumber.js')
 module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) => {
   const { get, log, save } = deployments
   const { deployer } = await getNamedAccounts()
-  const config = require('../deploy-configs/mainnet.json')
+  const config = require('../deploy-configs/get-config')
   const forests = require('../deploy-configs/forests.json')
 
   const treeDeployment = await get('TREE')

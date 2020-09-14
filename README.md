@@ -46,6 +46,10 @@ In one terminal, run `scripts/start-mainnet-fork.sh`. Then in another terminal, 
 
 The first test will take a few minutes to run, because it needs to deploy the contracts.
 
+### Deploy local test environment
+
+In one terminal, run `scripts/start-mainnet-fork.sh`. Then in another terminal, run `scripts/setup-test-env.js`. This will set up a local environment that you can use for things like testing the frontend.
+
 ### Deployment
 
 Read [DEPLOY_README.md](DEPLOY_README.md)
