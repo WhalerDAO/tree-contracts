@@ -167,6 +167,10 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     rebaser = TREERebaser(_rebaser);
   }
 
+  function treeSalesLength() external view returns (uint256) {
+    return treeSales.length;
+  }
+
   /**
     @notice distribute minted TREE to TREERewards and TREEGov, and sell the rest
     @param amount the amount of TREE minted
