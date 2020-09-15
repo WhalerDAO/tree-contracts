@@ -21,7 +21,7 @@ contract UniswapOracle is ITREEOracle {
 
   uint256 public price0CumulativeLast;
   uint256 public price1CumulativeLast;
-  uint32 public blockTimestampLast;
+  uint32 public override blockTimestampLast;
   FixedPoint.uq112x112 public price0Average;
   FixedPoint.uq112x112 public price1Average;
   bool public initialized;

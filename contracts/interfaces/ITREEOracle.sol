@@ -14,4 +14,6 @@ interface ITREEOracle {
   function updateAndConsult(address token, uint256 amountIn)
     external
     returns (uint256 amountOut);
+  
+  function blockTimestampLast() external view returns (uint32);
 }
