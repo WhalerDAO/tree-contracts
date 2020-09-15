@@ -58,8 +58,8 @@ async function main () {
   await yUSDContract.approve(UNI_ROUTER_ADDR, amount, { from: deployer })
   await uniswapRouterContract.swapExactTokensForTokens(amount, 0, [config.reserveToken, treeDeployment.address], deployer, deadline, { from: deployer, gasLimit: 3e5 })
 
-  // wait 12 hours
-  await timeTravel(12 * HOUR)
+  // wait till next oracle update
+  await timeTravel(config.oraclePeriod)
 
   // check TREE price and minted token amount
   await oracleContract.update({ from: deployer })

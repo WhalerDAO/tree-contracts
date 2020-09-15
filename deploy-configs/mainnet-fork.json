@@ -11,7 +11,7 @@
   "deviationThreshold": 5e16,
   "rebaseMultiplier": 1e17,
   "lpRewardInitial": 2e21,
-  "rewardStartTimestamp": 1600704000,
+  "rewardStartTimestamp": 1600158891,
   "oraclePeriod": 10,
   "isTesting": true
 }
