@@ -7,8 +7,11 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "./TREE.sol";
 import "./TREERebaser.sol";
+import "./interfaces/ITREEOracle.sol";
 import "./interfaces/ITREERewards.sol";
 
 contract TREEReserve is ReentrancyGuard, Ownable {
@@ -32,21 +35,16 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   /**
     Events
    */
-  event SellTREE(uint256 amount);
-  event BuyTREEFromSale(uint256 saleIdx, uint256 amount);
-  event BurnExpiredSale(uint256 saleIdx);
+  event SellTREE(uint256 treeSold, uint256 reserveTokenReceived);
   event BurnTREE(
     address indexed sender,
     uint256 burnTreeAmount,
     uint256 receiveReserveTokenAmount
   );
-  event SetGovCandidate(address _newValue);
   event SetGov(address _newValue);
-  event SetCharityCandidate(address _newValue);
   event SetCharity(address _newValue);
-  event SetCharityCutCandidate(uint256 _newValue);
+  event SetLPRewards(address _newValue);
   event SetCharityCut(uint256 _newValue);
-  event SetRewardsCutCandidate(uint256 _newValue);
   event SetRewardsCut(uint256 _newValue);
 
   /**
@@ -78,19 +76,7 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   uint256 public constant MAX_REWARDS_CUT = 10**17; // 10%
 
   /**
-    Immutable system parameters
-   */
-  /**
-    @notice the length of a TREE sale, stored in seconds
-   */
-  uint256 public immutable saleLength;
-  /**
-    @notice the time lock length for changing params, stored in seconds
-   */
-  uint256 public immutable timelockLength;
-
-  /**
-    Mutable system parameters
+    System parameters
    */
   /**
     @notice the address that has governance power over the reserve params
@@ -108,27 +94,10 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     @notice the proportion of rebase income given to LPRewards
    */
   uint256 public rewardsCut;
-
   /**
-    Mutable system parameter timelock variables
-   */
-  address public govCandidate;
-  uint256 public govCandidateProposeTimestamp;
-  address public charityCandidate;
-  uint256 public charityCandidateProposeTimestamp;
-  uint256 public charityCutCandidate;
-  uint256 public charityCutCandidateProposeTimestamp;
-  uint256 public rewardsCutCandidate;
-  uint256 public rewardsCutCandidateProposeTimestamp;
-
-  /**
-    Public variables
-   */
-  struct TREESale {
-    uint256 amount;
-    uint256 expireTimestamp;
-  }
-  TREESale[] public treeSales;
+    @notice the maximum slippage factor when buying reserve token
+  */
+  uint256 public maxSlippageFactor;
 
   /**
     External contracts
@@ -136,29 +105,33 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   TREE public immutable tree;
   ERC20 public immutable reserveToken;
   TREERebaser public rebaser;
-  ITREERewards public immutable lpRewards;
+  ITREERewards public lpRewards;
+  ITREEOracle public immutable oracle;
+  IUniswapV2Router02 public immutable uniswapRouter;
 
   constructor(
     uint256 _charityCut,
     uint256 _rewardsCut,
-    uint256 _saleLength,
-    uint256 _timelockLength,
+    uint256 _maxSlippageFactor,
     address _tree,
     address _gov,
     address _charity,
     address _reserveToken,
-    address _lpRewards
+    address _lpRewards,
+    address _oracle,
+    address _uniswapRouter
   ) public {
     charityCut = _charityCut;
     rewardsCut = _rewardsCut;
-    saleLength = _saleLength;
-    timelockLength = _timelockLength;
+    maxSlippageFactor = _maxSlippageFactor;
 
     tree = TREE(_tree);
     gov = _gov;
     charity = _charity;
     reserveToken = ERC20(_reserveToken);
     lpRewards = ITREERewards(_lpRewards);
+    oracle = ITREEOracle(_oracle);
+    uniswapRouter = IUniswapV2Router02(_uniswapRouter);
   }
 
   function initContracts(address _rebaser) external onlyOwner {
@@ -167,84 +140,41 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     rebaser = TREERebaser(_rebaser);
   }
 
-  function treeSalesLength() external view returns (uint256) {
-    return treeSales.length;
-  }
-
   /**
     @notice distribute minted TREE to TREERewards and TREEGov, and sell the rest
-    @param amount the amount of TREE minted
+    @param mintedTREEAmount the amount of TREE minted
+    @param offPegPerc the TREE price off peg percentage
    */
-  function handlePositiveRebase(uint256 amount)
+  function handlePositiveRebase(uint256 mintedTREEAmount, uint256 offPegPerc)
     external
     onlyRebaser
     nonReentrant
   {
     // send TREE to TREERewards
-    uint256 rewardsCutAmount = amount.mul(rewardsCut).div(PRECISION);
+    uint256 rewardsCutAmount = mintedTREEAmount.mul(rewardsCut).div(PRECISION);
     tree.transfer(address(lpRewards), rewardsCutAmount);
     lpRewards.notifyRewardAmount(rewardsCutAmount);
 
-    // send TREE to charity
-    uint256 charityCutAmount = amount.mul(charityCut).div(PRECISION);
-    tree.transfer(address(charity), charityCutAmount);
-
     // sell remaining TREE for reserveToken
-    uint256 remainingAmount = amount.sub(rewardsCutAmount).sub(
-      charityCutAmount
+    uint256 remainingTREEAmount = mintedTREEAmount.sub(rewardsCutAmount);
+    (uint256 treeSold, uint256 reserveTokenReceived) = _sellTREE(
+      remainingTREEAmount,
+      offPegPerc
     );
-    _sellTREE(remainingAmount);
-  }
 
-  /**
-    @notice buy TREE from an ongoing rebase sale
-    @param saleIdx the index of the sale in treeSales
-    @param amount the amount of TREE to buy
-   */
-  function buyTREEFromSale(uint256 saleIdx, uint256 amount)
-    external
-    nonReentrant
-  {
-    uint256 remainingSaleAmount = treeSales[saleIdx].amount;
-    uint256 expireTimestamp = treeSales[saleIdx].expireTimestamp;
-    require(
-      amount <= remainingSaleAmount && amount > 0,
-      "TREEReserve: invalid amount"
+    // burn unsold TREE
+    if (treeSold < remainingTREEAmount) {
+      tree.reserveBurn(address(this), remainingTREEAmount.sub(treeSold));
+    }
+
+    // send reserveToken to charity
+    uint256 charityCutAmount = reserveTokenReceived.mul(charityCut).div(
+      PRECISION.sub(rewardsCut)
     );
-    require(block.timestamp < expireTimestamp, "TREEReserve: sale expired");
-
-    // transfer reserveToken from msg.sender
-    uint256 payAmount = amount.mul(PEG).div(PRECISION);
-    reserveToken.safeTransferFrom(msg.sender, address(this), payAmount);
-
-    // transfer TREE to msg.sender
-    tree.transfer(msg.sender, amount);
-
-    // update sale data
-    treeSales[saleIdx].amount = remainingSaleAmount.sub(amount);
+    reserveToken.safeTransfer(address(charity), charityCutAmount);
 
     // emit event
-    emit BuyTREEFromSale(saleIdx, amount);
-  }
-
-  /**
-    @notice burn the TREE locked in an expired sale
-    @param saleIdx the index of the sale in treeSales
-   */
-  function burnExpiredSale(uint256 saleIdx) external nonReentrant {
-    uint256 remainingSaleAmount = treeSales[saleIdx].amount;
-    uint256 expireTimestamp = treeSales[saleIdx].expireTimestamp;
-    require(remainingSaleAmount > 0, "TREEReserve: nothing to burn");
-    require(block.timestamp >= expireTimestamp, "TREEReserve: sale active");
-
-    // burn TREE
-    tree.burn(remainingSaleAmount);
-
-    // update sale data
-    delete treeSales[saleIdx];
-
-    // emit event
-    emit BurnExpiredSale(saleIdx);
+    emit SellTREE(treeSold, reserveTokenReceived);
   }
 
   function burnTREE(uint256 amount) external nonReentrant {
@@ -267,94 +197,104 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   }
 
   /**
-    Param setters
-   */
-  function setGovCandidate(address _newValue) external onlyGov {
-    require(_newValue != address(0), "TREEReserve: 0");
-    govCandidate = _newValue;
-    govCandidateProposeTimestamp = block.timestamp;
-    emit SetGovCandidate(_newValue);
-  }
-
-  function setGov() external {
-    require(
-      block.timestamp >= govCandidateProposeTimestamp.add(timelockLength),
-      "TREEReserve: timelock"
-    );
-    gov = govCandidate;
-    emit SetGov(gov);
-  }
-
-  function setCharityCandidate(address _newValue) external onlyGov {
-    require(_newValue != address(0), "TREEReserve: 0");
-    charityCandidate = _newValue;
-    charityCandidateProposeTimestamp = block.timestamp;
-    emit SetCharityCandidate(_newValue);
-  }
-
-  function setCharity() external {
-    require(
-      block.timestamp >= charityCandidateProposeTimestamp.add(timelockLength),
-      "TREEReserve: timelock"
-    );
-    charity = charityCandidate;
-    emit SetCharity(charity);
-  }
-
-  function setCharityCutCandidate(uint256 _newValue) external onlyGov {
-    require(
-      _newValue >= MIN_CHARITY_CUT && _newValue <= MAX_CHARITY_CUT,
-      "TREEReserve: invalid value"
-    );
-    charityCutCandidate = _newValue;
-    charityCutCandidateProposeTimestamp = block.timestamp;
-    emit SetCharityCutCandidate(_newValue);
-  }
-
-  function setCharityCut() external {
-    require(
-      block.timestamp >=
-        charityCutCandidateProposeTimestamp.add(timelockLength),
-      "TREEReserve: timelock"
-    );
-    charityCut = charityCutCandidate;
-    emit SetCharityCut(charityCut);
-  }
-
-  function setRewardsCutCandidate(uint256 _newValue) external onlyGov {
-    require(
-      _newValue >= MIN_REWARDS_CUT && _newValue <= MAX_REWARDS_CUT,
-      "TREEReserve: invalid value"
-    );
-    rewardsCutCandidate = _newValue;
-    rewardsCutCandidateProposeTimestamp = block.timestamp;
-    emit SetRewardsCutCandidate(_newValue);
-  }
-
-  function setRewardsCut() external {
-    require(
-      block.timestamp >=
-        rewardsCutCandidateProposeTimestamp.add(timelockLength),
-      "TREEReserve: timelock"
-    );
-    rewardsCut = rewardsCutCandidate;
-    emit SetRewardsCut(rewardsCut);
-  }
-
-  /**
     Utilities
    */
   /**
     @notice create a sell order for TREE
     @param amount the amount of TREE to sell
+    @param offPegPerc the TREE price off peg percentage
+    @return treeSold the amount of TREE sold
+            reserveTokenReceived the amount of reserve tokens received
    */
-  function _sellTREE(uint256 amount) internal {
-    treeSales.push(
-      TREESale({
-        amount: amount,
-        expireTimestamp: saleLength.add(block.timestamp)
-      })
+  function _sellTREE(uint256 amount, uint256 offPegPerc)
+    internal
+    returns (uint256 treeSold, uint256 reserveTokenReceived)
+  {
+    IUniswapV2Pair pair = IUniswapV2Pair(oracle.pair());
+    (uint256 token0Reserves, uint256 token1Reserves, ) = pair.getReserves();
+    uint256 tokensToMaxSlippage = _uniswapMaxSlippage(
+      token0Reserves,
+      token1Reserves,
+      offPegPerc
     );
-    emit SellTREE(amount);
+    treeSold = amount > tokensToMaxSlippage ? tokensToMaxSlippage : amount;
+    tree.increaseAllowance(address(uniswapRouter), treeSold);
+    address[] memory path = new address[](2);
+    path[0] = address(tree);
+    path[1] = address(reserveToken);
+    uint256[] memory amounts = uniswapRouter.swapExactTokensForTokens(
+      treeSold,
+      1,
+      path,
+      address(this),
+      block.timestamp
+    );
+    reserveTokenReceived = amounts[1];
+  }
+
+  function _uniswapMaxSlippage(
+    uint256 token0,
+    uint256 token1,
+    uint256 offPegPerc
+  ) internal view returns (uint256) {
+    if (oracle.token0() == address(tree)) {
+      if (offPegPerc >= 10**17) {
+        // cap slippage
+        return token0.mul(maxSlippageFactor).div(10**18);
+      } else {
+        // in the 5-10% off peg range, slippage is essentially 2*x (where x is percentage of pool to buy).
+        // all we care about is not pushing below the peg, so underestimate
+        // the amount we can sell by dividing by 3. resulting price impact
+        // should be ~= offPegPerc * 2 / 3, which will keep us above the peg
+        //
+        // this is a conservative heuristic
+        return token0.mul(offPegPerc.div(3)).div(10**18);
+      }
+    } else {
+      if (offPegPerc >= 10**17) {
+        return token1.mul(maxSlippageFactor).div(10**18);
+      } else {
+        return token1.mul(offPegPerc.div(3)).div(10**18);
+      }
+    }
+  }
+
+  /**
+    Param setters
+   */
+  function setGov(address _newValue) external onlyGov {
+    require(_newValue != address(0), "TREEReserve: 0");
+    gov = _newValue;
+    emit SetGov(_newValue);
+  }
+
+  function setCharity(address _newValue) external onlyGov {
+    require(_newValue != address(0), "TREEReserve: 0");
+    charity = _newValue;
+    emit SetCharity(_newValue);
+  }
+
+  function setLPRewards(address _newValue) external onlyGov {
+    require(_newValue != address(0), "TREEReserve: 0");
+    lpRewards = ITREERewards(_newValue);
+    emit SetLPRewards(_newValue);
+  }
+
+  function setCharityCut(uint256 _newValue) external onlyGov {
+    require(
+      _newValue >= MIN_CHARITY_CUT && _newValue <= MAX_CHARITY_CUT,
+      "TREEReserve: invalid value"
+    );
+    charityCut = _newValue;
+    emit SetCharityCut(_newValue);
+  }
+
+  function setRewardsCut(uint256 _newValue) external onlyGov {
+    require(
+      _newValue >= MIN_REWARDS_CUT && _newValue <= MAX_REWARDS_CUT,
+      "TREEReserve: invalid value"
+    );
+    rewardsCut = _newValue;
+    emit SetRewardsCut(_newValue);
   }
 }

@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract TREE is ERC20("tree.finance", "TREE"), ERC20Burnable, Ownable {
+contract TREE is ERC20("tree.finance", "TREE"), Ownable {
   /**
     @notice the TREERebaser contract
    */

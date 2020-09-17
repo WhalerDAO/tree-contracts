@@ -108,7 +108,7 @@ contract TREERebaser is ReentrancyGuard {
       // (1) mint TREE to reserve
       tree.rebaserMint(address(reserve), supplyChangeAmount);
       // (2) let reserve perform actions with the minted TREE
-      reserve.handlePositiveRebase(supplyChangeAmount);
+      reserve.handlePositiveRebase(supplyChangeAmount, offPegPerc);
     }
 
     // emit rebase event

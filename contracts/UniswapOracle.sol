@@ -6,11 +6,10 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
-import "../interfaces/ITREEOracle.sol";
 
 // fixed window oracle that recomputes the average price for the entire period once every period
 // note that the price average is only guaranteed to be over at least 1 period, but may be over a longer period
-contract UniswapOracle is ITREEOracle {
+contract UniswapOracle {
   using FixedPoint for *;
 
   uint256 public PERIOD;
@@ -21,11 +20,11 @@ contract UniswapOracle is ITREEOracle {
 
   uint256 public price0CumulativeLast;
   uint256 public price1CumulativeLast;
-  uint32 public override blockTimestampLast;
+  uint32 public blockTimestampLast;
   FixedPoint.uq112x112 public price0Average;
   FixedPoint.uq112x112 public price1Average;
   bool public initialized;
-  bool public override updated;
+  bool public updated;
 
   constructor(
     address factory,
@@ -53,7 +52,7 @@ contract UniswapOracle is ITREEOracle {
     require(reserve0 != 0 && reserve1 != 0, "UniswapOracle: NO_RESERVES"); // ensure that there's liquidity in the pair
   }
 
-  function update() external override returns (bool success) {
+  function update() external returns (bool success) {
     require(initialized, "UniswapOracle: NOT_INITIALIZED");
     (
       uint256 price0Cumulative,
@@ -87,7 +86,6 @@ contract UniswapOracle is ITREEOracle {
   // note this will always return 0 before update has been called successfully for the first time.
   function consult(address token, uint256 amountIn)
     external
-    override
     view
     returns (uint256 amountOut)
   {
@@ -100,7 +98,10 @@ contract UniswapOracle is ITREEOracle {
   }
 
   // used in frontend for checking the latest price
-  function updateAndConsult(address token, uint256 amountIn) external override returns (uint256 amountOut) {
+  function updateAndConsult(address token, uint256 amountIn)
+    external
+    returns (uint256 amountOut)
+  {
     this.update();
     return this.consult(token, amountIn);
   }
