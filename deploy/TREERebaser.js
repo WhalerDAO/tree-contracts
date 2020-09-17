@@ -13,7 +13,7 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
     from: deployer,
     args: [BigNumber(config.minimumRebaseInterval).toFixed(), BigNumber(config.deviationThreshold).toFixed(),
       BigNumber(config.rebaseMultiplier).toFixed(), treeDeployment.address,
-      oracleDeployment.address, reserveDeployment.address]
+      oracleDeployment.address, reserveDeployment.address, config.gov]
   })
   if (deployResult.newlyDeployed) {
     log(`TREERebaser deployed at ${deployResult.address}`)

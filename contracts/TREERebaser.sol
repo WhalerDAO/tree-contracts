@@ -12,9 +12,23 @@ contract TREERebaser is ReentrancyGuard {
   using SafeMath for uint256;
 
   /**
+    Modifiers
+   */
+
+  modifier onlyGov {
+    require(msg.sender == gov, "TREEReserve: not gov");
+    _;
+  }
+
+  /**
     Events
    */
   event Rebase(uint256 treeSupplyChange);
+  event SetGov(address _newValue);
+  event SetOracle(address _newValue);
+  event SetMinimumRebaseInterval(uint256 _newValue);
+  event SetDeviationThreshold(uint256 _newValue);
+  event SetRebaseMultiplier(uint256 _newValue);
 
   /**
     Public constants
@@ -27,6 +41,30 @@ contract TREERebaser is ReentrancyGuard {
     @notice the peg for TREE price, in reserve tokens
    */
   uint256 public constant PEG = 10**18; // 1 reserveToken/TREE
+  /**
+    @notice the minimum value of minimumRebaseInterval
+   */
+  uint256 public constant MIN_MINIMUM_REBASE_INTERVAL = 12 hours;
+  /**
+    @notice the maximum value of minimumRebaseInterval
+   */
+  uint256 public constant MAX_MINIMUM_REBASE_INTERVAL = 14 days;
+  /**
+    @notice the minimum value of deviationThreshold
+   */
+  uint256 public constant MIN_DEVIATION_THRESHOLD = 10**16; // 1%
+  /**
+    @notice the maximum value of deviationThreshold
+   */
+  uint256 public constant MAX_DEVIATION_THRESHOLD = 10**17; // 10%
+  /**
+    @notice the minimum value of rebaseMultiplier
+   */
+  uint256 public constant MIN_REBASE_MULTIPLIER = 5 * 10**16; // 0.05x
+  /**
+    @notice the maximum value of rebaseMultiplier
+   */
+  uint256 public constant MAX_REBASE_MULTIPLIER = 10**19; // 10x
 
   /**
     System parameters
@@ -34,15 +72,15 @@ contract TREERebaser is ReentrancyGuard {
   /**
     @notice the minimum interval between rebases, in seconds
    */
-  uint256 public immutable minimumRebaseInterval;
+  uint256 public minimumRebaseInterval;
   /**
     @notice the threshold for the off peg percentage of TREE price above which rebase will occur
    */
-  uint256 public immutable deviationThreshold;
+  uint256 public deviationThreshold;
   /**
     @notice the multiplier for calculating how much TREE to mint during a rebase
    */
-  uint256 public immutable rebaseMultiplier;
+  uint256 public rebaseMultiplier;
 
   /**
     Public variables
@@ -51,12 +89,16 @@ contract TREERebaser is ReentrancyGuard {
     @notice the timestamp of the last rebase
    */
   uint256 public lastRebaseTimestamp;
+  /**
+    @notice the address that has governance power over the reserve params
+   */
+  address public gov;
 
   /**
     External contracts
    */
   TREE public immutable tree;
-  ITREEOracle public immutable oracle;
+  ITREEOracle public oracle;
   TREEReserve public immutable reserve;
 
   constructor(
@@ -65,7 +107,8 @@ contract TREERebaser is ReentrancyGuard {
     uint256 _rebaseMultiplier,
     address _tree,
     address _oracle,
-    address _reserve
+    address _reserve,
+    address _gov
   ) public {
     minimumRebaseInterval = _minimumRebaseInterval;
     deviationThreshold = _deviationThreshold;
@@ -76,6 +119,7 @@ contract TREERebaser is ReentrancyGuard {
     tree = TREE(_tree);
     oracle = ITREEOracle(_oracle);
     reserve = TREEReserve(_reserve);
+    gov = _gov;
   }
 
   function rebase() external nonReentrant {
@@ -166,5 +210,50 @@ contract TREERebaser is ReentrancyGuard {
     return
       (rate >= PEG && rate.sub(PEG) < absoluteDeviationThreshold) ||
       (rate < PEG && PEG.sub(rate) < absoluteDeviationThreshold);
+  }
+
+  /**
+    Param setters
+   */
+
+  function setGov(address _newValue) external onlyGov {
+    require(_newValue != address(0), "TREEReserve: 0");
+    gov = _newValue;
+    emit SetGov(_newValue);
+  }
+
+  function setOracle(address _newValue) external onlyGov {
+    require(_newValue != address(0), "TREEReserve: 0");
+    oracle = ITREEOracle(_newValue);
+    emit SetOracle(_newValue);
+  }
+
+  function setMinimumRebaseInterval(uint256 _newValue) external onlyGov {
+    require(
+      _newValue >= MIN_MINIMUM_REBASE_INTERVAL &&
+        _newValue <= MAX_MINIMUM_REBASE_INTERVAL,
+      "TREERebaser: invalid value"
+    );
+    minimumRebaseInterval = _newValue;
+    emit SetMinimumRebaseInterval(_newValue);
+  }
+
+  function setDeviationThreshold(uint256 _newValue) external onlyGov {
+    require(
+      _newValue >= MIN_DEVIATION_THRESHOLD &&
+        _newValue <= MAX_DEVIATION_THRESHOLD,
+      "TREERebaser: invalid value"
+    );
+    deviationThreshold = _newValue;
+    emit SetDeviationThreshold(_newValue);
+  }
+
+  function setRebaseMultiplier(uint256 _newValue) external onlyGov {
+    require(
+      _newValue >= MIN_REBASE_MULTIPLIER && _newValue <= MAX_REBASE_MULTIPLIER,
+      "TREERebaser: invalid value"
+    );
+    rebaseMultiplier = _newValue;
+    emit SetRebaseMultiplier(_newValue);
   }
 }

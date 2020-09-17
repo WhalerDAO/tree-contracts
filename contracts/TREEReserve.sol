@@ -11,7 +11,6 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "./TREE.sol";
 import "./TREERebaser.sol";
-import "./interfaces/ITREEOracle.sol";
 import "./interfaces/ITREERewards.sol";
 
 contract TREEReserve is ReentrancyGuard, Ownable {
@@ -44,8 +43,11 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   event SetGov(address _newValue);
   event SetCharity(address _newValue);
   event SetLPRewards(address _newValue);
+  event SetUniswapPair(address _newValue);
+  event SetUniswapRouter(address _newValue);
   event SetCharityCut(uint256 _newValue);
   event SetRewardsCut(uint256 _newValue);
+  event SetMaxSlippageFactor(uint256 _newValue);
 
   /**
     Public constants
@@ -74,6 +76,14 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     @notice the maximum value of rewardsCut
    */
   uint256 public constant MAX_REWARDS_CUT = 10**17; // 10%
+  /**
+    @notice the minimum value of maxSlippageFactor
+   */
+  uint256 public constant MIN_MAX_SLIPPAGE_FACTOR = 10**16; // 1%
+  /**
+    @notice the maximum value of maxSlippageFactor
+   */
+  uint256 public constant MAX_MAX_SLIPPAGE_FACTOR = 10**17; // 10%
 
   /**
     System parameters
@@ -106,8 +116,8 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   ERC20 public immutable reserveToken;
   TREERebaser public rebaser;
   ITREERewards public lpRewards;
-  ITREEOracle public immutable oracle;
-  IUniswapV2Router02 public immutable uniswapRouter;
+  IUniswapV2Pair public uniswapPair;
+  IUniswapV2Router02 public uniswapRouter;
 
   constructor(
     uint256 _charityCut,
@@ -118,7 +128,7 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     address _charity,
     address _reserveToken,
     address _lpRewards,
-    address _oracle,
+    address _uniswapPair,
     address _uniswapRouter
   ) public {
     charityCut = _charityCut;
@@ -130,7 +140,7 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     charity = _charity;
     reserveToken = ERC20(_reserveToken);
     lpRewards = ITREERewards(_lpRewards);
-    oracle = ITREEOracle(_oracle);
+    uniswapPair = IUniswapV2Pair(_uniswapPair);
     uniswapRouter = IUniswapV2Router02(_uniswapRouter);
   }
 
@@ -210,8 +220,8 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     internal
     returns (uint256 treeSold, uint256 reserveTokenReceived)
   {
-    IUniswapV2Pair pair = IUniswapV2Pair(oracle.pair());
-    (uint256 token0Reserves, uint256 token1Reserves, ) = pair.getReserves();
+    (uint256 token0Reserves, uint256 token1Reserves, ) = uniswapPair
+      .getReserves();
     uint256 tokensToMaxSlippage = _uniswapMaxSlippage(
       token0Reserves,
       token1Reserves,
@@ -233,14 +243,14 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   }
 
   function _uniswapMaxSlippage(
-    uint256 token0,
-    uint256 token1,
+    uint256 token0Reserves,
+    uint256 token1Reserves,
     uint256 offPegPerc
   ) internal view returns (uint256) {
-    if (oracle.token0() == address(tree)) {
+    if (address(tree) < address(reserveToken)) {
       if (offPegPerc >= 10**17) {
         // cap slippage
-        return token0.mul(maxSlippageFactor).div(10**18);
+        return token0Reserves.mul(maxSlippageFactor).div(10**18);
       } else {
         // in the 5-10% off peg range, slippage is essentially 2*x (where x is percentage of pool to buy).
         // all we care about is not pushing below the peg, so underestimate
@@ -248,13 +258,13 @@ contract TREEReserve is ReentrancyGuard, Ownable {
         // should be ~= offPegPerc * 2 / 3, which will keep us above the peg
         //
         // this is a conservative heuristic
-        return token0.mul(offPegPerc.div(3)).div(10**18);
+        return token0Reserves.mul(offPegPerc.div(3)).div(10**18);
       }
     } else {
       if (offPegPerc >= 10**17) {
-        return token1.mul(maxSlippageFactor).div(10**18);
+        return token1Reserves.mul(maxSlippageFactor).div(10**18);
       } else {
-        return token1.mul(offPegPerc.div(3)).div(10**18);
+        return token1Reserves.mul(offPegPerc.div(3)).div(10**18);
       }
     }
   }
@@ -280,6 +290,18 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     emit SetLPRewards(_newValue);
   }
 
+  function setUniswapPair(address _newValue) external onlyGov {
+    require(_newValue != address(0), "TREEReserve: 0");
+    uniswapPair = IUniswapV2Pair(_newValue);
+    emit SetUniswapPair(_newValue);
+  }
+
+  function setUniswapRouter(address _newValue) external onlyGov {
+    require(_newValue != address(0), "TREEReserve: 0");
+    uniswapRouter = IUniswapV2Router02(_newValue);
+    emit SetUniswapRouter(_newValue);
+  }
+
   function setCharityCut(uint256 _newValue) external onlyGov {
     require(
       _newValue >= MIN_CHARITY_CUT && _newValue <= MAX_CHARITY_CUT,
@@ -296,5 +318,15 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     );
     rewardsCut = _newValue;
     emit SetRewardsCut(_newValue);
+  }
+
+  function setMaxSlippageFactor(uint256 _newValue) external onlyGov {
+    require(
+      _newValue >= MIN_MAX_SLIPPAGE_FACTOR &&
+        _newValue <= MAX_MAX_SLIPPAGE_FACTOR,
+      "TREEReserve: invalid value"
+    );
+    maxSlippageFactor = _newValue;
+    emit SetMaxSlippageFactor(_newValue);
   }
 }

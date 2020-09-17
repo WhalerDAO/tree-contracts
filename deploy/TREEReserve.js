@@ -1,13 +1,14 @@
 const BigNumber = require('bignumber.js')
 
-module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
+module.exports = async ({ getNamedAccounts, deployments, getChainId, ethers }) => {
   const { deploy, get, log } = deployments
   const { deployer } = await getNamedAccounts()
   const config = require('../deploy-configs/get-config')
 
   const treeDeployment = await get('TREE')
   const lpRewardsDeployment = await get('LPRewards')
-  const oracleDeployment = await get('UniswapOracle')
+  const uniswapFactoryContract = await ethers.getContractAt('IUniswapV2Factory', config.uniswapFactory)
+  const treePairAddress = await uniswapFactoryContract.getPair(treeDeployment.address, config.reserveToken)
 
   const deployResult = await deploy('TREEReserve', {
     from: deployer,
@@ -20,7 +21,7 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
       config.charity,
       config.reserveToken,
       lpRewardsDeployment.address,
-      oracleDeployment.address,
+      treePairAddress,
       config.uniswapRouter
     ]
   })
@@ -29,4 +30,4 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
   }
 }
 module.exports.tags = ['TREEReserve', 'stage1']
-module.exports.dependencies = ['TREE', 'LPRewards', 'UniswapOracle']
+module.exports.dependencies = ['TREE', 'LPRewards']
