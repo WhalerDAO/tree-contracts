@@ -7,6 +7,7 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId, ethers }) =
 
   const treeDeployment = await get('TREE')
   const lpRewardsDeployment = await get('LPRewards')
+  const timelockDeployment = await get('Timelock')
   const uniswapFactoryContract = await ethers.getContractAt('IUniswapV2Factory', config.uniswapFactory)
   const treePairAddress = await uniswapFactoryContract.getPair(treeDeployment.address, config.reserveToken)
 
@@ -17,7 +18,7 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId, ethers }) =
       BigNumber(config.rewardsCut).toFixed(),
       BigNumber(config.maxSlippageFactor).toFixed(),
       treeDeployment.address,
-      config.gov,
+      timelockDeployment.address,
       config.charity,
       config.reserveToken,
       lpRewardsDeployment.address,
@@ -30,4 +31,4 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId, ethers }) =
   }
 }
 module.exports.tags = ['TREEReserve', 'stage1']
-module.exports.dependencies = ['TREE', 'LPRewards']
+module.exports.dependencies = ['TREE', 'LPRewards', 'Timelock']

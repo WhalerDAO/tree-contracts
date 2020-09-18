@@ -10,6 +10,6 @@ module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) =
     log('Initialized UniswapOracle')
   }
 }
-module.exports.tags = ['UniswapOracle-init', 'stage2']
+module.exports.tags = ['UniswapOracle-init', 'stage3']
 module.exports.dependencies = []
 module.exports.runAtTheEnd = true

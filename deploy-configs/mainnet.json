@@ -14,5 +14,7 @@
   "lpRewardInitial": 2e21,
   "rewardStartTimestamp": 1600704000,
   "oraclePeriod": 43200,
+  "amb": "0x0000000000000000000000000000000000000003",
+  "l2ChainID": 74,
   "isTesting": false
 }
