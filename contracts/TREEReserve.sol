@@ -12,6 +12,7 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "./TREE.sol";
 import "./TREERebaser.sol";
 import "./interfaces/ITREERewards.sol";
+import "./interfaces/IOmniBridge.sol";
 
 contract TREEReserve is ReentrancyGuard, Ownable {
   using SafeMath for uint256;
@@ -45,6 +46,7 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   event SetLPRewards(address _newValue);
   event SetUniswapPair(address _newValue);
   event SetUniswapRouter(address _newValue);
+  event SetOmniBridge(address _newValue);
   event SetCharityCut(uint256 _newValue);
   event SetRewardsCut(uint256 _newValue);
   event SetMaxSlippageFactor(uint256 _newValue);
@@ -93,7 +95,7 @@ contract TREEReserve is ReentrancyGuard, Ownable {
    */
   address public gov;
   /**
-    @notice the address that will store the TREE donation
+    @notice the address that will store the TREE donation, NEEDS TO BE ON L2 CHAIN
    */
   address public charity;
   /**
@@ -118,6 +120,7 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   ITREERewards public lpRewards;
   IUniswapV2Pair public uniswapPair;
   IUniswapV2Router02 public uniswapRouter;
+  IOmniBridge public omniBridge;
 
   constructor(
     uint256 _charityCut,
@@ -129,7 +132,8 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     address _reserveToken,
     address _lpRewards,
     address _uniswapPair,
-    address _uniswapRouter
+    address _uniswapRouter,
+    address _omniBridge
   ) public {
     charityCut = _charityCut;
     rewardsCut = _rewardsCut;
@@ -142,6 +146,7 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     lpRewards = ITREERewards(_lpRewards);
     uniswapPair = IUniswapV2Pair(_uniswapPair);
     uniswapRouter = IUniswapV2Router02(_uniswapRouter);
+    omniBridge = IOmniBridge(_omniBridge);
   }
 
   function initContracts(address _rebaser) external onlyOwner {
@@ -181,7 +186,8 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     uint256 charityCutAmount = reserveTokenReceived.mul(charityCut).div(
       PRECISION.sub(rewardsCut)
     );
-    reserveToken.safeTransfer(address(charity), charityCutAmount);
+    reserveToken.safeIncreaseAllowance(address(omniBridge), charityCutAmount);
+    omniBridge.relayTokens(address(reserveToken), charity, charityCutAmount);
 
     // emit event
     emit SellTREE(treeSold, reserveTokenReceived);
@@ -300,6 +306,12 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     require(_newValue != address(0), "TREEReserve: 0");
     uniswapRouter = IUniswapV2Router02(_newValue);
     emit SetUniswapRouter(_newValue);
+  }
+
+  function setOmniBridge(address _newValue) external onlyGov {
+    require(_newValue != address(0), "TREEReserve: 0");
+    omniBridge = IOmniBridge(_newValue);
+    emit SetOmniBridge(_newValue);
   }
 
   function setCharityCut(uint256 _newValue) external onlyGov {

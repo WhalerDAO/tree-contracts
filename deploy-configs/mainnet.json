@@ -14,7 +14,8 @@
   "lpRewardInitial": 2e21,
   "rewardStartTimestamp": 1600704000,
   "oraclePeriod": 43200,
-  "amb": "0x0000000000000000000000000000000000000003",
-  "l2ChainID": 74,
+  "amb": "0x4C36d2919e407f0Cc2Ee3c993ccF8ac26d9CE64e",
+  "l2ChainID": 100,
+  "omniBridge": "0x88ad09518695c6c3712AC10a214bE5109a655671",
   "isTesting": false
 }

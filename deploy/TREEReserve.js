@@ -23,7 +23,8 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId, ethers }) =
       config.reserveToken,
       lpRewardsDeployment.address,
       treePairAddress,
-      config.uniswapRouter
+      config.uniswapRouter,
+      config.omniBridge
     ]
   })
   if (deployResult.newlyDeployed) {

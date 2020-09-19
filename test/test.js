@@ -197,15 +197,17 @@ describe('Rebasing', () => {
     // rebase
     const lpRewardsDeployment = await get('LPRewards')
     const lpRewardsTreeBalance = await tree.balanceOf(lpRewardsDeployment.address)
-    await expect(rebaser.rebase({ from: deployer, gasLimit: 4e5 }))
+    const omniBridgeContract = await ethers.getContractAt('IOmniBridge', config.omniBridge)
+    const omniBridgeYUSDBalance = await omniBridgeContract.mediatorBalance(config.reserveToken)
+    await expect(rebaser.rebase({ from: deployer, gasLimit: 6e5 }))
       .to.emit(rebaser, 'Rebase').withArgs(expectedMintTreeAmount)
 
     // check TREE balances
     const expectedLPRewardsBalanceChange = expectedMintTreeAmount.mul(config.rewardsCut.toString()).div(PRECISION)
-    const actualCharityBalance = await yUSDContract.balanceOf(config.charity)
+    const actualOmniBridgeYUSDBalanceChange = (await omniBridgeContract.mediatorBalance(config.reserveToken)).sub(omniBridgeYUSDBalance)
     const actualLPRewardsBalanceChange = (await tree.balanceOf(lpRewardsDeployment.address)).sub(lpRewardsTreeBalance)
     const actualReserveBalance = await yUSDContract.balanceOf(reserve.address)
-    expect(actualCharityBalance).to.be.gt(0)
+    expect(actualOmniBridgeYUSDBalanceChange).to.be.gt(0)
     expect(actualLPRewardsBalanceChange).to.be.most(expectedLPRewardsBalanceChange.add(1e9))
     expect(actualLPRewardsBalanceChange).to.be.least(expectedLPRewardsBalanceChange.sub(1e9))
     expect(actualReserveBalance).to.be.gt(0)
@@ -252,7 +254,7 @@ describe('Reserve', () => {
     await timeTravel(config.oraclePeriod)
 
     // rebase
-    await rebaser.rebase({ from: deployer, gasLimit: 4e5 })
+    await rebaser.rebase({ from: deployer, gasLimit: 6e5 })
 
     // check balances
     expect(await yUSDContract.balanceOf(reserve.address)).to.be.gt(0)
