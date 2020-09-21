@@ -8,7 +8,7 @@ Elastic supply currency for funding charity and public goods.
 
 When the price of 1 TREE exceeds 1.05 yUSD, a rebase will be triggered, minting TREE proportional to the price deviation. Unlike Ampleforth and Yam, TREE does not have negative rebases when the price drops below 1 yUSD.
 
-Of the minted TREE, 10% is sent to a rewards pool for TREE-yUSD UNI-V2 liquidity providers, 10% is sent to charity, and 80% is sold for yUSD and put into the reserve. These weights can be changed by governance, though a hardcoded range is set.
+Of the minted TREE, 10% is sent to a rewards pool for TREE-yUSD UNI-V2 liquidity providers, 10% is sold for yUSD and sent to the charity DAO, and 80% is sold for yUSD and put into the reserve. These weights can be changed by governance, though a hardcoded range is set.
 
 ### The reserve & quadratic burning
 
@@ -29,6 +29,8 @@ Quadratic burning efficiently uses the reserve to maintain an upwards price pres
 The charity TREEs generated during rebases will be sent to an Aragon DAO that uses [Conviction Voting](https://medium.com/giveth/conviction-voting-a-novel-continuous-decision-making-alternative-to-governance-aa746cfb9475) to make decisions on which charities to fund and how much to fund. TREE will be used as the governance token.
 
 The Aragon DAO will also have regular 1-token-1-vote voting for changing the system parameters of TREE (e.g. the weights for distributing minted TREEs), which should be used far less frequently.
+
+The DAO will be deployed on IDChain (a fork of xDAI). During rebases, the charity funds will be sent directly from the mainnet TREE contracts to the DAO using the [Arbitrary Message Bridge (AMB)](https://docs.tokenbridge.net/amb-bridge/about-amb-bridge). The DAO can also call admin functions in the TREE contracts directly through the AMB.
 
 ## Local development
 
