@@ -138,6 +138,7 @@ contract TREERebaser is ReentrancyGuard {
 
     // check whether TREE price has deviated from the peg by a proportion over the threshold
     require(offPegPerc > 0, "TREERebaser: not off peg");
+    require(positive, "TREERebaser: price < peg");
 
     // apply multiplier to offPegPerc
     uint256 indexDelta = offPegPerc.mul(rebaseMultiplier).div(PRECISION);
@@ -147,13 +148,11 @@ contract TREERebaser is ReentrancyGuard {
     uint256 supplyChangeAmount = treeSupply.mul(indexDelta).div(PRECISION);
 
     // rebase TREE
-    if (positive) {
-      // if TREE price > peg, mint TREE proportional to deviation
-      // (1) mint TREE to reserve
-      tree.rebaserMint(address(reserve), supplyChangeAmount);
-      // (2) let reserve perform actions with the minted TREE
-      reserve.handlePositiveRebase(supplyChangeAmount, offPegPerc);
-    }
+    // mint TREE proportional to deviation
+    // (1) mint TREE to reserve
+    tree.rebaserMint(address(reserve), supplyChangeAmount);
+    // (2) let reserve perform actions with the minted TREE
+    reserve.handlePositiveRebase(supplyChangeAmount, offPegPerc);
 
     // emit rebase event
     emit Rebase(supplyChangeAmount);
