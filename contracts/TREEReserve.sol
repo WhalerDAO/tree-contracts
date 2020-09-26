@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+import "@uniswap/lib/contracts/libraries/Babylonian.sol";
 import "./TREE.sol";
 import "./TREERebaser.sol";
 import "./interfaces/ITREERewards.sol";
@@ -49,7 +50,6 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   event SetOmniBridge(address _newValue);
   event SetCharityCut(uint256 _newValue);
   event SetRewardsCut(uint256 _newValue);
-  event SetMaxSlippageFactor(uint256 _newValue);
 
   /**
     Public constants
@@ -59,9 +59,9 @@ contract TREEReserve is ReentrancyGuard, Ownable {
    */
   uint256 public constant PRECISION = 10**18;
   /**
-    @notice the peg for TREE price, in reserve tokens
+    @notice Uniswap takes 0.3% fee, gamma = 1 - 0.3% = 99.7%
    */
-  uint256 public constant PEG = 10**18; // 1 reserveToken/TREE
+  uint256 public constant UNISWAP_GAMMA = 997 * 10**15;
   /**
     @notice the minimum value of charityCut
    */
@@ -78,14 +78,6 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     @notice the maximum value of rewardsCut
    */
   uint256 public constant MAX_REWARDS_CUT = 10**17; // 10%
-  /**
-    @notice the minimum value of maxSlippageFactor
-   */
-  uint256 public constant MIN_MAX_SLIPPAGE_FACTOR = 10**16; // 1%
-  /**
-    @notice the maximum value of maxSlippageFactor
-   */
-  uint256 public constant MAX_MAX_SLIPPAGE_FACTOR = 10**17; // 10%
 
   /**
     System parameters
@@ -106,10 +98,6 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     @notice the proportion of rebase income given to LPRewards
    */
   uint256 public rewardsCut;
-  /**
-    @notice the maximum slippage factor when buying reserve token
-  */
-  uint256 public maxSlippageFactor;
 
   /**
     External contracts
@@ -125,7 +113,6 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   constructor(
     uint256 _charityCut,
     uint256 _rewardsCut,
-    uint256 _maxSlippageFactor,
     address _tree,
     address _gov,
     address _charity,
@@ -137,7 +124,6 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   ) public {
     charityCut = _charityCut;
     rewardsCut = _rewardsCut;
-    maxSlippageFactor = _maxSlippageFactor;
 
     tree = TREE(_tree);
     gov = _gov;
@@ -158,9 +144,8 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   /**
     @notice distribute minted TREE to TREERewards and TREEGov, and sell the rest
     @param mintedTREEAmount the amount of TREE minted
-    @param offPegPerc the TREE price off peg percentage
    */
-  function handlePositiveRebase(uint256 mintedTREEAmount, uint256 offPegPerc)
+  function handlePositiveRebase(uint256 mintedTREEAmount)
     external
     onlyRebaser
     nonReentrant
@@ -173,8 +158,7 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     // sell remaining TREE for reserveToken
     uint256 remainingTREEAmount = mintedTREEAmount.sub(rewardsCutAmount);
     (uint256 treeSold, uint256 reserveTokenReceived) = _sellTREE(
-      remainingTREEAmount,
-      offPegPerc
+      remainingTREEAmount
     );
 
     // burn unsold TREE
@@ -218,22 +202,22 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   /**
     @notice create a sell order for TREE
     @param amount the amount of TREE to sell
-    @param offPegPerc the TREE price off peg percentage
     @return treeSold the amount of TREE sold
             reserveTokenReceived the amount of reserve tokens received
    */
-  function _sellTREE(uint256 amount, uint256 offPegPerc)
+  function _sellTREE(uint256 amount)
     internal
     returns (uint256 treeSold, uint256 reserveTokenReceived)
   {
     (uint256 token0Reserves, uint256 token1Reserves, ) = uniswapPair
       .getReserves();
-    uint256 tokensToMaxSlippage = _uniswapMaxSlippage(
+    // the max amount of TREE that can be sold such that
+    // the price doesn't go below the peg
+    uint256 maxSellAmount = _uniswapMaxSellAmount(
       token0Reserves,
-      token1Reserves,
-      offPegPerc
+      token1Reserves
     );
-    treeSold = amount > tokensToMaxSlippage ? tokensToMaxSlippage : amount;
+    treeSold = amount > maxSellAmount ? maxSellAmount : amount;
     tree.increaseAllowance(address(uniswapRouter), treeSold);
     address[] memory path = new address[](2);
     path[0] = address(tree);
@@ -248,31 +232,22 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     reserveTokenReceived = amounts[1];
   }
 
-  function _uniswapMaxSlippage(
-    uint256 token0Reserves,
-    uint256 token1Reserves,
-    uint256 offPegPerc
-  ) internal view returns (uint256) {
+  function _uniswapMaxSellAmount(uint256 token0Reserves, uint256 token1Reserves)
+    internal
+    view
+    returns (uint256 result)
+  {
+    // the max amount of TREE we can sell brings the price down to the peg
+    // maxSellAmount = (sqrt(R_tree * R_reserveToken) - R_tree) / UNISWAP_GAMMA
+    result = Babylonian.sqrt(token0Reserves.mul(token1Reserves));
     if (address(tree) < address(reserveToken)) {
-      if (offPegPerc >= 10**17) {
-        // cap slippage
-        return token0Reserves.mul(maxSlippageFactor).div(10**18);
-      } else {
-        // in the 5-10% off peg range, slippage is essentially 2*x (where x is percentage of pool to buy).
-        // all we care about is not pushing below the peg, so underestimate
-        // the amount we can sell by dividing by 3. resulting price impact
-        // should be ~= offPegPerc * 2 / 3, which will keep us above the peg
-        //
-        // this is a conservative heuristic
-        return token0Reserves.mul(offPegPerc.div(3)).div(10**18);
-      }
+      // TREE is token0 of the Uniswap pair
+      result = result.sub(token0Reserves);
     } else {
-      if (offPegPerc >= 10**17) {
-        return token1Reserves.mul(maxSlippageFactor).div(10**18);
-      } else {
-        return token1Reserves.mul(offPegPerc.div(3)).div(10**18);
-      }
+      // TREE is token1 of the Uniswap pair
+      result = result.sub(token1Reserves);
     }
+    result = result.mul(PRECISION).div(UNISWAP_GAMMA);
   }
 
   /**
@@ -330,15 +305,5 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     );
     rewardsCut = _newValue;
     emit SetRewardsCut(_newValue);
-  }
-
-  function setMaxSlippageFactor(uint256 _newValue) external onlyGov {
-    require(
-      _newValue >= MIN_MAX_SLIPPAGE_FACTOR &&
-        _newValue <= MAX_MAX_SLIPPAGE_FACTOR,
-      "TREEReserve: invalid value"
-    );
-    maxSlippageFactor = _newValue;
-    emit SetMaxSlippageFactor(_newValue);
   }
 }

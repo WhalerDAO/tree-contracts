@@ -16,7 +16,6 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId, ethers }) =
     args: [
       BigNumber(config.charityCut).toFixed(),
       BigNumber(config.rewardsCut).toFixed(),
-      BigNumber(config.maxSlippageFactor).toFixed(),
       treeDeployment.address,
       timelockDeployment.address,
       config.charity,

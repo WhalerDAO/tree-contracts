@@ -202,6 +202,7 @@ contract LPTokenWrapper {
 contract TREERewards is LPTokenWrapper, IRewardDistributionRecipient {
   IERC20 public rewardToken;
   uint256 public constant DURATION = 7 days;
+  uint256 public constant PRECISION = 10**18;
 
   uint256 public starttime;
   uint256 public periodFinish = 0;
@@ -259,7 +260,7 @@ contract TREERewards is LPTokenWrapper, IRewardDistributionRecipient {
         lastTimeRewardApplicable()
           .sub(lastUpdateTime)
           .mul(rewardRate)
-          .mul(1e18)
+          .mul(PRECISION)
           .div(totalSupply())
       );
   }
@@ -268,7 +269,7 @@ contract TREERewards is LPTokenWrapper, IRewardDistributionRecipient {
     return
       balanceOf(account)
         .mul(rewardPerToken().sub(userRewardPerTokenPaid[account]))
-        .div(1e18)
+        .div(PRECISION)
         .add(rewards[account]);
   }
 

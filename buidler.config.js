@@ -1,6 +1,7 @@
 usePlugin('@nomiclabs/buidler-waffle')
-usePlugin("@nomiclabs/buidler-ethers")
+usePlugin('@nomiclabs/buidler-ethers')
 usePlugin('buidler-deploy')
+usePlugin('solidity-coverage')
 
 extendEnvironment(bre => {
   bre.config.mocha.timeout = 600000
@@ -18,6 +19,11 @@ module.exports = {
   networks: {
     ganache: {
       url: 'http://localhost:8545',
+      gasLimit: 1e7,
+      gasPrice: 1e11
+    },
+    coverage: {
+      url: 'http://localhost:8555',
       gasLimit: 1e7,
       gasPrice: 1e11
     }

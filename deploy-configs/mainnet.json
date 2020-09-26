@@ -1,7 +1,6 @@
 {
   "charityCut": 1e17,
   "rewardsCut": 1e17,
-  "maxSlippageFactor": 5409258e10,
   "timelockLength": 259200,
   "gov": "0x0000000000000000000000000000000000000001",
   "charity": "0x0000000000000000000000000000000000000002",

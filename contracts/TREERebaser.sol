@@ -38,10 +38,6 @@ contract TREERebaser is ReentrancyGuard {
    */
   uint256 public constant PRECISION = 10**18;
   /**
-    @notice the peg for TREE price, in reserve tokens
-   */
-  uint256 public constant PEG = 10**18; // 1 reserveToken/TREE
-  /**
     @notice the minimum value of minimumRebaseInterval
    */
   uint256 public constant MIN_MINIMUM_REBASE_INTERVAL = 12 hours;
@@ -133,15 +129,11 @@ contract TREERebaser is ReentrancyGuard {
     // query TREE price from oracle
     uint256 treePrice = _treePrice();
 
-    // calculate TREE price off peg percentage
-    (uint256 offPegPerc, bool positive) = _computeOffPegPerc(treePrice);
-
     // check whether TREE price has deviated from the peg by a proportion over the threshold
-    require(offPegPerc > 0, "TREERebaser: not off peg");
-    require(positive, "TREERebaser: price < peg");
+    require(treePrice >= PRECISION && treePrice.sub(PRECISION) >= deviationThreshold, "TREERebaser: not off peg");
 
-    // apply multiplier to offPegPerc
-    uint256 indexDelta = offPegPerc.mul(rebaseMultiplier).div(PRECISION);
+    // calculate off peg percentage and apply multiplier
+    uint256 indexDelta = treePrice.sub(PRECISION).mul(rebaseMultiplier).div(PRECISION);
 
     // calculate the change in total supply
     uint256 treeSupply = tree.totalSupply();
@@ -152,7 +144,7 @@ contract TREERebaser is ReentrancyGuard {
     // (1) mint TREE to reserve
     tree.rebaserMint(address(reserve), supplyChangeAmount);
     // (2) let reserve perform actions with the minted TREE
-    reserve.handlePositiveRebase(supplyChangeAmount, offPegPerc);
+    reserve.handlePositiveRebase(supplyChangeAmount);
 
     // emit rebase event
     emit Rebase(supplyChangeAmount);
@@ -172,57 +164,17 @@ contract TREERebaser is ReentrancyGuard {
   }
 
   /**
-   * @return offPegPerc in % how far off market is from peg
-   *         positive true if the rate is over the peg, false if the rate is below the peg
-   */
-  function _computeOffPegPerc(uint256 rate)
-    internal
-    view
-    returns (uint256 offPegPerc, bool positive)
-  {
-    if (_withinDeviationThreshold(rate)) {
-      return (0, false);
-    }
-
-    // indexDelta =  (rate - PEG) / PEG
-    if (rate > PEG) {
-      return (rate.sub(PEG).mul(10**18).div(PEG), true);
-    } else {
-      return (PEG.sub(rate).mul(10**18).div(PEG), false);
-    }
-  }
-
-  /**
-   * @param rate The current exchange rate, an 18 decimal fixed point number.
-   * @return If the rate is within the deviation threshold from the target rate, returns true.
-   *         Otherwise, returns false.
-   */
-  function _withinDeviationThreshold(uint256 rate)
-    internal
-    view
-    returns (bool)
-  {
-    uint256 absoluteDeviationThreshold = PEG.mul(deviationThreshold).div(
-      10**18
-    );
-
-    return
-      (rate >= PEG && rate.sub(PEG) < absoluteDeviationThreshold) ||
-      (rate < PEG && PEG.sub(rate) < absoluteDeviationThreshold);
-  }
-
-  /**
     Param setters
    */
 
   function setGov(address _newValue) external onlyGov {
-    require(_newValue != address(0), "TREEReserve: 0");
+    require(_newValue != address(0), "TREEReserve: address is 0");
     gov = _newValue;
     emit SetGov(_newValue);
   }
 
   function setOracle(address _newValue) external onlyGov {
-    require(_newValue != address(0), "TREEReserve: 0");
+    require(_newValue != address(0), "TREEReserve: address is 0");
     oracle = ITREEOracle(_newValue);
     emit SetOracle(_newValue);
   }
