@@ -183,7 +183,7 @@ contract TREERebaser is ReentrancyGuard {
     require(
       _newValue >= MIN_MINIMUM_REBASE_INTERVAL &&
         _newValue <= MAX_MINIMUM_REBASE_INTERVAL,
-      "TREERebaser: invalid value"
+      "TREERebaser: value out of range"
     );
     minimumRebaseInterval = _newValue;
     emit SetMinimumRebaseInterval(_newValue);
@@ -193,7 +193,7 @@ contract TREERebaser is ReentrancyGuard {
     require(
       _newValue >= MIN_DEVIATION_THRESHOLD &&
         _newValue <= MAX_DEVIATION_THRESHOLD,
-      "TREERebaser: invalid value"
+      "TREERebaser: value out of range"
     );
     deviationThreshold = _newValue;
     emit SetDeviationThreshold(_newValue);
@@ -202,7 +202,7 @@ contract TREERebaser is ReentrancyGuard {
   function setRebaseMultiplier(uint256 _newValue) external onlyGov {
     require(
       _newValue >= MIN_REBASE_MULTIPLIER && _newValue <= MAX_REBASE_MULTIPLIER,
-      "TREERebaser: invalid value"
+      "TREERebaser: value out of range"
     );
     rebaseMultiplier = _newValue;
     emit SetRebaseMultiplier(_newValue);

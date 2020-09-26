@@ -254,37 +254,37 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     Param setters
    */
   function setGov(address _newValue) external onlyGov {
-    require(_newValue != address(0), "TREEReserve: 0");
+    require(_newValue != address(0), "TREEReserve: address is 0");
     gov = _newValue;
     emit SetGov(_newValue);
   }
 
   function setCharity(address _newValue) external onlyGov {
-    require(_newValue != address(0), "TREEReserve: 0");
+    require(_newValue != address(0), "TREEReserve: address is 0");
     charity = _newValue;
     emit SetCharity(_newValue);
   }
 
   function setLPRewards(address _newValue) external onlyGov {
-    require(_newValue != address(0), "TREEReserve: 0");
+    require(_newValue != address(0), "TREEReserve: address is 0");
     lpRewards = ITREERewards(_newValue);
     emit SetLPRewards(_newValue);
   }
 
   function setUniswapPair(address _newValue) external onlyGov {
-    require(_newValue != address(0), "TREEReserve: 0");
+    require(_newValue != address(0), "TREEReserve: address is 0");
     uniswapPair = IUniswapV2Pair(_newValue);
     emit SetUniswapPair(_newValue);
   }
 
   function setUniswapRouter(address _newValue) external onlyGov {
-    require(_newValue != address(0), "TREEReserve: 0");
+    require(_newValue != address(0), "TREEReserve: address is 0");
     uniswapRouter = IUniswapV2Router02(_newValue);
     emit SetUniswapRouter(_newValue);
   }
 
   function setOmniBridge(address _newValue) external onlyGov {
-    require(_newValue != address(0), "TREEReserve: 0");
+    require(_newValue != address(0), "TREEReserve: address is 0");
     omniBridge = IOmniBridge(_newValue);
     emit SetOmniBridge(_newValue);
   }
@@ -292,7 +292,7 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   function setCharityCut(uint256 _newValue) external onlyGov {
     require(
       _newValue >= MIN_CHARITY_CUT && _newValue <= MAX_CHARITY_CUT,
-      "TREEReserve: invalid value"
+      "TREEReserve: value out of range"
     );
     charityCut = _newValue;
     emit SetCharityCut(_newValue);
@@ -301,7 +301,7 @@ contract TREEReserve is ReentrancyGuard, Ownable {
   function setRewardsCut(uint256 _newValue) external onlyGov {
     require(
       _newValue >= MIN_REWARDS_CUT && _newValue <= MAX_REWARDS_CUT,
-      "TREEReserve: invalid value"
+      "TREEReserve: value out of range"
     );
     rewardsCut = _newValue;
     emit SetRewardsCut(_newValue);
