@@ -150,20 +150,23 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     onlyRebaser
     nonReentrant
   {
-    // send TREE to TREERewards
-    uint256 rewardsCutAmount = mintedTREEAmount.mul(rewardsCut).div(PRECISION);
-    tree.transfer(address(lpRewards), rewardsCutAmount);
-    lpRewards.notifyRewardAmount(rewardsCutAmount);
-
     // sell remaining TREE for reserveToken
+    uint256 rewardsCutAmount = mintedTREEAmount.mul(rewardsCut).div(PRECISION);
     uint256 remainingTREEAmount = mintedTREEAmount.sub(rewardsCutAmount);
     (uint256 treeSold, uint256 reserveTokenReceived) = _sellTREE(
       remainingTREEAmount
     );
 
-    // burn unsold TREE
+    // handle unsold TREE
     if (treeSold < remainingTREEAmount) {
-      tree.reserveBurn(address(this), remainingTREEAmount.sub(treeSold));
+      // the TREE going to rewards should be decreased if there's unsold TREE
+      // to maintain the ratio between charityCut and rewardsCut
+      uint256 newRewardsCutAmount = rewardsCutAmount.mul(treeSold).div(remainingTREEAmount);
+      uint256 burnAmount = remainingTREEAmount.sub(treeSold).add(rewardsCutAmount).sub(newRewardsCutAmount);
+      rewardsCutAmount = newRewardsCutAmount;
+
+      // burn unsold TREE
+      tree.reserveBurn(address(this), burnAmount);
     }
 
     // send reserveToken to charity
@@ -172,6 +175,10 @@ contract TREEReserve is ReentrancyGuard, Ownable {
     );
     reserveToken.safeIncreaseAllowance(address(omniBridge), charityCutAmount);
     omniBridge.relayTokens(address(reserveToken), charity, charityCutAmount);
+
+    // send TREE to TREERewards
+    tree.transfer(address(lpRewards), rewardsCutAmount);
+    lpRewards.notifyRewardAmount(rewardsCutAmount);
 
     // emit event
     emit SellTREE(treeSold, reserveTokenReceived);
