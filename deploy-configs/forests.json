@@ -1,32 +1,32 @@
 [
   {
-    "symbol": "yYFI",
-    "address": "0xBA2E7Fed597fd0E3e70f5130BcDbbFE06bB94fe1",
+    "symbol": "YFI",
+    "address": "0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e",
     "treeAmount": 1e21
   },
   {
-    "symbol": "yDAIVault",
-    "address": "0xACd43E627e64355f1861cEC6d3a6688B31a6F952",
+    "symbol": "UNI",
+    "address": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
     "treeAmount": 1e21
   },
   {
-    "symbol": "yWETH",
-    "address": "0xe1237aA7f535b0CC33Fd973D66cBf830354D16c7",
+    "symbol": "WETH",
+    "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
     "treeAmount": 1e21
   },
   {
-    "symbol": "yaLINK",
-    "address": "0x29E240CFD7946BA20895a7a02eDb25C210f9f324",
+    "symbol": "PAN",
+    "address": "0xd56dac73a4d6766464b38ec6d91eb45ce7457c44",
     "treeAmount": 1e21
   },
   {
-    "symbol": "SNX",
-    "address": "0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f",
+    "symbol": "BAL",
+    "address": "0xba100000625a3754423978a60c9317c58a424e3d",
     "treeAmount": 1e21
   },
   {
-    "symbol": "LEND",
-    "address": "0x80fB784B7eD66730e8b1DBd9820aFD29931aab03",
+    "symbol": "AAVE",
+    "address": "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",
     "treeAmount": 1e21
   },
   {
@@ -37,6 +37,11 @@
   {
     "symbol": "ANT",
     "address": "0x960b236A07cf122663c4303350609A66A7B288C0",
+    "treeAmount": 1e21
+  },
+  {
+    "symbol": "STAKE",
+    "address": "0x0Ae055097C6d159879521C384F1D2123D1f195e6",
     "treeAmount": 1e21
   }
 ]
