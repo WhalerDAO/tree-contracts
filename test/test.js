@@ -186,23 +186,23 @@ describe('Rebasing', () => {
     const lpRewardsDeployment = await get('LPRewards')
     const lpRewardsTreeBalance = await tree.balanceOf(lpRewardsDeployment.address)
     const omniBridgeContract = await ethers.getContractAt('IOmniBridge', config.omniBridge)
-    const omniBridgeYUSDBalance = await omniBridgeContract.mediatorBalance(config.reserveToken)
+    const omniBridgeDAIBalance = await omniBridgeContract.mediatorBalance(config.reserveToken)
     await expect(rebaser.rebase({ from: deployer, gasLimit: 6e5 }))
       .to.emit(rebaser, 'Rebase').withArgs(expectedMintTreeAmount)
 
     // check TREE balances
     const TREEUNIReserve = BigNumber((100 * 100) / (100 + 0.997 * 100))
     const expectedSellTREEAmount = TREEUNIReserve.times(200).sqrt().minus(TREEUNIReserve).div(0.997).times(PRECISION)
-    const expectedReceiveYUSDAmount = BigNumber(200).minus(TREEUNIReserve.times(200).div(TREEUNIReserve.plus(expectedSellTREEAmount.div(PRECISION).times(0.997)))).times(PRECISION)
-    let expectedCharityAmount = expectedReceiveYUSDAmount.times(config.charityCut).div(BigNumber(PRECISION).minus(config.rewardsCut))
-    const expectedReserveBalance = ethers.BigNumber.from(expectedReceiveYUSDAmount.minus(expectedCharityAmount).integerValue().toString())
+    const expectedReceiveDAIAmount = BigNumber(200).minus(TREEUNIReserve.times(200).div(TREEUNIReserve.plus(expectedSellTREEAmount.div(PRECISION).times(0.997)))).times(PRECISION)
+    let expectedCharityAmount = expectedReceiveDAIAmount.times(config.charityCut).div(BigNumber(PRECISION).minus(config.rewardsCut))
+    const expectedReserveBalance = ethers.BigNumber.from(expectedReceiveDAIAmount.minus(expectedCharityAmount).integerValue().toString())
     expectedCharityAmount = ethers.BigNumber.from(expectedCharityAmount.integerValue().toString())
     const expectedLPRewardsBalanceChange = ethers.BigNumber.from(expectedSellTREEAmount.times(config.rewardsCut).div(BigNumber(PRECISION).minus(config.charityCut)).integerValue().toString())
-    const actualOmniBridgeYUSDBalanceChange = (await omniBridgeContract.mediatorBalance(config.reserveToken)).sub(omniBridgeYUSDBalance)
+    const actualOmniBridgeDAIBalanceChange = (await omniBridgeContract.mediatorBalance(config.reserveToken)).sub(omniBridgeDAIBalance)
     const actualLPRewardsBalanceChange = (await tree.balanceOf(lpRewardsDeployment.address)).sub(lpRewardsTreeBalance)
     const actualReserveBalance = await DAIContract.balanceOf(reserve.address)
-    expect(actualOmniBridgeYUSDBalanceChange).to.be.most(expectedCharityAmount.add(1e9))
-    expect(actualOmniBridgeYUSDBalanceChange).to.be.least(expectedCharityAmount.sub(1e9))
+    expect(actualOmniBridgeDAIBalanceChange).to.be.most(expectedCharityAmount.add(1e9))
+    expect(actualOmniBridgeDAIBalanceChange).to.be.least(expectedCharityAmount.sub(1e9))
     expect(actualLPRewardsBalanceChange).to.be.most(expectedLPRewardsBalanceChange.add(1e9))
     expect(actualLPRewardsBalanceChange).to.be.least(expectedLPRewardsBalanceChange.sub(1e9))
     expect(actualReserveBalance).to.be.most(expectedReserveBalance.add(1e9))
@@ -234,7 +234,6 @@ describe('Reserve', () => {
     // buy DAI with ETH
     await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
 
-
     // sell DAI for TREE
     const amount = BigNumber(100).times(1e18).toFixed()
     await DAIContract.approve(config.uniswapRouter, amount, { from: deployer })
@@ -261,7 +260,6 @@ describe('Reserve', () => {
     const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
     // buy DAI with ETH
     await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
-
 
     // sell DAI for TREE
     const amount = BigNumber(10).times(1e18).toFixed()

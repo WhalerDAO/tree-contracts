@@ -6,13 +6,13 @@ Elastic supply currency for funding charity and public goods.
 
 ### Rebase
 
-When the price of 1 TREE exceeds 1.05 yUSD, a rebase will be triggered, minting TREE proportional to the price deviation. Unlike Ampleforth and Yam, TREE does not have negative rebases when the price drops below 1 yUSD.
+When the price of 1 TREE exceeds 1.05 dai, a rebase will be triggered, minting TREE proportional to the price deviation. Unlike Ampleforth and Yam, TREE does not have negative rebases when the price drops below 1 dai.
 
-Of the minted TREE, 10% is sent to a rewards pool for TREE-yUSD UNI-V2 liquidity providers, 10% is sold for yUSD and sent to the charity DAO, and 80% is sold for yUSD and put into the reserve. These weights can be changed by governance, though a hardcoded range is set.
+Of the minted TREE, 10% is sent to a rewards pool for TREE-dai UNI-V2 liquidity providers, 10% is sold for dai and sent to the charity DAO, and 80% is sold for dai and put into the reserve. These weights can be changed by governance, though a hardcoded range is set.
 
 ### The reserve & quadratic burning
 
-TREE generates upwards price pressure using the reserve. The reserve holds the yUSD earned from rebases, and TREE holders can burn their TREEs to receive part of the reserve.
+TREE generates upwards price pressure using the reserve. The reserve holds the dai earned from rebases, and TREE holders can burn their TREEs to receive part of the reserve.
 
 Rather than proportional-share burning (i.e. burn x% of supply to get x% of reserve), TREE uses **quadratic burning**, where for instance if you burnt 10% of the TREE supply, you get `10% * 10% = 1%` of the reserve.
 
@@ -20,7 +20,7 @@ Quadratic burning creates an interesting game where TREE holders are incentivize
 
 (You can picture this as if you burnt your TREEs, its ashes would act as nutrients and make the remaining trees grow taller :D)
 
-Of course, this does not mean that nobody will ever burn their TREE: when the market price of TREE goes below the price you can burn TREE at, you can generate a profit through arbitrage (buying TREE on the market and burning them). When someone performs this arbitrage, not only would TREE's price increase due to the decreased supply, it would also increase because you can now get more yUSD from burning TREE.
+Of course, this does not mean that nobody will ever burn their TREE: when the market price of TREE goes below the price you can burn TREE at, you can generate a profit through arbitrage (buying TREE on the market and burning them). When someone performs this arbitrage, not only would TREE's price increase due to the decreased supply, it would also increase because you can now get more dai from burning TREE.
 
 Quadratic burning efficiently uses the reserve to maintain an upwards price pressure, incentivizes long-term holding, and protects holders against dump-happy whales.
 
