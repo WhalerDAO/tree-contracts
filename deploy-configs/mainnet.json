@@ -11,10 +11,10 @@
   "deviationThreshold": 5e16,
   "rebaseMultiplier": 1e17,
   "lpRewardInitial": 3e21,
-  "rewardStartTimestamp": 1600704000,
+  "rewardStartTimestamp": 1605902400,
   "oraclePeriod": 43200,
-  "amb": "0x4C36d2919e407f0Cc2Ee3c993ccF8ac26d9CE64e",
-  "l2ChainID": 100,
-  "omniBridge": "0x88ad09518695c6c3712AC10a214bE5109a655671",
-  "isTesting": false
+  "amb": "0x33d136C1501709Ee020D7A8CA56D44DAcb15e227",
+  "l2ChainID": "0x4a",
+  "omniBridge": "0xc47192E48F75B612c792833C8b54Ad6BE319af90",
+  "isTesting": true
 }

@@ -10,8 +10,7 @@ const DAY = 24 * HOUR
 const PRECISION = BigNumber(1e18).toFixed()
 const REG_POOL_TREES = 1e21 // 1000 TREE per regular pool
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
-const SNX_ADDR = '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f'
-const YCRV_ADDR = '0xdf5e0e81dff6faf3a7e52ba697820c5e32d806a8'
+const STAKE_TOKEN_ADDR = '0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e' // a forest stake token for testing
 
 // travel `time` seconds forward in time
 const timeTravel = (time) => {
@@ -25,27 +24,22 @@ const setupTest = deployments.createFixture(async ({ deployments, getNamedAccoun
   // deploy stage 1
   await deployments.fixture('stage1')
 
-  // provide liquidity to TREE-yUSD UNI-V2 pair
+  // provide liquidity to TREE-DAI UNI-V2 pair
 
   const amount = BigNumber(100).times(1e18).toFixed()
-  const yUSDContract = await ethers.getContractAt('IERC20', config.reserveToken)
+  const DAIContract = await ethers.getContractAt('IERC20', config.reserveToken)
   const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', config.uniswapRouter)
   const wethAddress = await uniswapRouterContract.WETH()
   const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
-  // buy yCRV with ETH
-  await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, YCRV_ADDR], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
-  // deposit yCRV into yUSD vault
-  const yCRVContract = await ethers.getContractAt('IERC20', YCRV_ADDR)
-  const yVaultABI = [{ constant: false, inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], payable: false, stateMutability: 'nonpayable', type: 'function' }]
-  const yUSDVault = await ethers.getContractAt(yVaultABI, config.reserveToken)
-  const yCRVBalance = await yCRVContract.balanceOf(deployer)
-  await yCRVContract.approve(config.reserveToken, yCRVBalance, { from: deployer })
-  await yUSDVault.deposit(yCRVBalance, { from: deployer })
+
+  // buy DAI with ETH
+  await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
+
   // add Uniswap liquidity
   const treeDeployment = await get('TREE')
   const treeContract = await ethers.getContractAt('TREE', treeDeployment.address)
   await treeContract.approve(uniswapRouterContract.address, amount, { from: deployer })
-  await yUSDContract.approve(uniswapRouterContract.address, amount, { from: deployer })
+  await DAIContract.approve(uniswapRouterContract.address, amount, { from: deployer })
   await uniswapRouterContract.addLiquidity(treeContract.address, config.reserveToken, amount, amount, 0, 0, deployer, deadline, { from: deployer, gasLimit: 3e6 })
 
   // deploy stage 2
@@ -93,25 +87,25 @@ describe('Farming', () => {
   it('should give correct reward to regular pool', async () => {
     const { deployer } = await getNamedAccounts()
 
-    // get SNX from Uniswap
+    // get YFI from Uniswap
     const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', config.uniswapRouter)
     const wethAddress = await uniswapRouterContract.WETH()
     const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
-    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, SNX_ADDR], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('1'), gasLimit: 2e5 })
+    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, STAKE_TOKEN_ADDR], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('1'), gasLimit: 2e5 })
 
-    // stake SNX into forest
-    const snxContract = await ethers.getContractAt('IERC20', SNX_ADDR)
-    const snxBalance = await snxContract.balanceOf(deployer)
-    const snxForestDeployment = await get('SNXForest')
-    const snxForestContract = await ethers.getContractAt('TREERewards', snxForestDeployment.address)
-    await snxContract.approve(snxForestDeployment.address, snxBalance, { from: deployer })
-    await snxForestContract.stake(snxBalance, { from: deployer })
+    // stake YFI into forest
+    const yfiContract = await ethers.getContractAt('IERC20', STAKE_TOKEN_ADDR)
+    const yfiBalance = await yfiContract.balanceOf(deployer)
+    const yfiForestDeployment = await get('YFIForest')
+    const yfiForestContract = await ethers.getContractAt('TREERewards', yfiForestDeployment.address)
+    await yfiContract.approve(yfiForestDeployment.address, yfiBalance, { from: deployer })
+    await yfiForestContract.stake(yfiBalance, { from: deployer })
 
     // wait 7 days
     await timeTravel(7 * DAY)
 
-    // withdraw SNX + reward
-    await snxForestContract.exit({ from: deployer })
+    // withdraw YFI + reward
+    await yfiForestContract.exit({ from: deployer })
 
     // should have received all TREE in pool
     expect(await tree.balanceOf(deployer)).to.be.least(BigNumber(REG_POOL_TREES).minus(1e18).toFixed())
@@ -163,24 +157,18 @@ describe('Rebasing', () => {
   it('should rebase when price is above peg by threshold delta', async () => {
     const { deployer } = await getNamedAccounts()
 
-    // purchase yUSD
-    const yUSDContract = await ethers.getContractAt('IERC20', config.reserveToken)
+    // purchase DAI
+    const DAIContract = await ethers.getContractAt('IERC20', config.reserveToken)
     const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', config.uniswapRouter)
     const wethAddress = await uniswapRouterContract.WETH()
     const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
-    // buy yCRV with ETH
-    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, YCRV_ADDR], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
-    // deposit yCRV into yUSD vault
-    const yCRVContract = await ethers.getContractAt('IERC20', YCRV_ADDR)
-    const yVaultABI = [{ constant: false, inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], payable: false, stateMutability: 'nonpayable', type: 'function' }]
-    const yUSDVault = await ethers.getContractAt(yVaultABI, config.reserveToken)
-    const yCRVBalance = await yCRVContract.balanceOf(deployer)
-    await yCRVContract.approve(config.reserveToken, yCRVBalance, { from: deployer })
-    await yUSDVault.deposit(yCRVBalance, { from: deployer })
 
-    // sell yUSD for TREE
+    // buy DAI with ETH
+    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
+
+    // sell DAI for TREE
     const amount = BigNumber(100).times(1e18).toFixed()
-    await yUSDContract.approve(config.uniswapRouter, amount, { from: deployer })
+    await DAIContract.approve(config.uniswapRouter, amount, { from: deployer })
     await uniswapRouterContract.swapExactTokensForTokens(amount, 0, [config.reserveToken, tree.address], deployer, deadline, { from: deployer, gasLimit: 3e5 })
 
     // wait 12 hours
@@ -212,7 +200,7 @@ describe('Rebasing', () => {
     const expectedLPRewardsBalanceChange = ethers.BigNumber.from(expectedSellTREEAmount.times(config.rewardsCut).div(BigNumber(PRECISION).minus(config.charityCut)).integerValue().toString())
     const actualOmniBridgeYUSDBalanceChange = (await omniBridgeContract.mediatorBalance(config.reserveToken)).sub(omniBridgeYUSDBalance)
     const actualLPRewardsBalanceChange = (await tree.balanceOf(lpRewardsDeployment.address)).sub(lpRewardsTreeBalance)
-    const actualReserveBalance = await yUSDContract.balanceOf(reserve.address)
+    const actualReserveBalance = await DAIContract.balanceOf(reserve.address)
     expect(actualOmniBridgeYUSDBalanceChange).to.be.most(expectedCharityAmount.add(1e9))
     expect(actualOmniBridgeYUSDBalanceChange).to.be.least(expectedCharityAmount.sub(1e9))
     expect(actualLPRewardsBalanceChange).to.be.most(expectedLPRewardsBalanceChange.add(1e9))
@@ -238,24 +226,18 @@ describe('Reserve', () => {
   it('should sell TREE during rebase', async () => {
     const { deployer } = await getNamedAccounts()
 
-    // purchase yUSD
-    const yUSDContract = await ethers.getContractAt('IERC20', config.reserveToken)
+    // purchase DAI
+    const DAIContract = await ethers.getContractAt('IERC20', config.reserveToken)
     const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', config.uniswapRouter)
     const wethAddress = await uniswapRouterContract.WETH()
     const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
-    // buy yCRV with ETH
-    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, YCRV_ADDR], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
-    // deposit yCRV into yUSD vault
-    const yCRVContract = await ethers.getContractAt('IERC20', YCRV_ADDR)
-    const yVaultABI = [{ constant: false, inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], payable: false, stateMutability: 'nonpayable', type: 'function' }]
-    const yUSDVault = await ethers.getContractAt(yVaultABI, config.reserveToken)
-    const yCRVBalance = await yCRVContract.balanceOf(deployer)
-    await yCRVContract.approve(config.reserveToken, yCRVBalance, { from: deployer })
-    await yUSDVault.deposit(yCRVBalance, { from: deployer })
+    // buy DAI with ETH
+    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
 
-    // sell yUSD for TREE
+
+    // sell DAI for TREE
     const amount = BigNumber(100).times(1e18).toFixed()
-    await yUSDContract.approve(config.uniswapRouter, amount, { from: deployer })
+    await DAIContract.approve(config.uniswapRouter, amount, { from: deployer })
     await uniswapRouterContract.swapExactTokensForTokens(amount, 0, [config.reserveToken, tree.address], deployer, deadline, { from: deployer, gasLimit: 3e5 })
 
     // wait 12 hours
@@ -265,36 +247,30 @@ describe('Reserve', () => {
     await rebaser.rebase({ from: deployer, gasLimit: 6e5 })
 
     // check balances
-    expect(await yUSDContract.balanceOf(reserve.address)).to.be.gt(0)
+    expect(await DAIContract.balanceOf(reserve.address)).to.be.gt(0)
     expect(await tree.balanceOf(reserve.address)).to.be.equal(0)
   })
 
   it('should be able to burn TREE to get reserve token', async () => {
     const { deployer } = await getNamedAccounts()
 
-    // purchase yUSD
-    const yUSDContract = await ethers.getContractAt('IERC20', config.reserveToken)
+    // purchase DAI
+    const DAIContract = await ethers.getContractAt('IERC20', config.reserveToken)
     const uniswapRouterContract = await ethers.getContractAt('IUniswapV2Router02', config.uniswapRouter)
     const wethAddress = await uniswapRouterContract.WETH()
     const deadline = BigNumber(1e20).toFixed() // a loooooong time in the future
-    // buy yCRV with ETH
-    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, YCRV_ADDR], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
-    // deposit yCRV into yUSD vault
-    const yCRVContract = await ethers.getContractAt('IERC20', YCRV_ADDR)
-    const yVaultABI = [{ constant: false, inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], payable: false, stateMutability: 'nonpayable', type: 'function' }]
-    const yUSDVault = await ethers.getContractAt(yVaultABI, config.reserveToken)
-    const yCRVBalance = await yCRVContract.balanceOf(deployer)
-    await yCRVContract.approve(config.reserveToken, yCRVBalance, { from: deployer })
-    await yUSDVault.deposit(yCRVBalance, { from: deployer })
+    // buy DAI with ETH
+    await uniswapRouterContract.swapExactETHForTokens(0, [wethAddress, config.reserveToken], deployer, deadline, { from: deployer, value: ethers.utils.parseEther('5'), gasLimit: 2e5 })
 
-    // sell yUSD for TREE
+
+    // sell DAI for TREE
     const amount = BigNumber(10).times(1e18).toFixed()
-    await yUSDContract.approve(config.uniswapRouter, amount, { from: deployer })
+    await DAIContract.approve(config.uniswapRouter, amount, { from: deployer })
     await uniswapRouterContract.swapExactTokensForTokens(amount, 0, [config.reserveToken, tree.address], deployer, deadline, { from: deployer, gasLimit: 3e5 })
 
-    // send yUSD to reserve
+    // send DAI to reserve
     const reserveBalance = ethers.BigNumber.from(10).mul(PRECISION)
-    await yUSDContract.transfer(reserve.address, reserveBalance, { from: deployer })
+    await DAIContract.transfer(reserve.address, reserveBalance, { from: deployer })
 
     // burn TREE balance and check return
     const treeBalance = await tree.balanceOf(deployer)
@@ -302,9 +278,9 @@ describe('Reserve', () => {
     const treeTotalSupply = await tree.totalSupply()
     const treeProportion = treeBalance.mul(PRECISION).div(treeTotalSupply)
     const expectedBurnReturn = reserveBalance.mul(treeProportion).div(PRECISION).mul(treeProportion).div(PRECISION)
-    const yUSDBalance = await yUSDContract.balanceOf(deployer)
+    const DAIBalance = await DAIContract.balanceOf(deployer)
     await reserve.burnTREE(treeBalance, { from: deployer })
-    const actualBurnReturn = (await yUSDContract.balanceOf(deployer)).sub(yUSDBalance)
+    const actualBurnReturn = (await DAIContract.balanceOf(deployer)).sub(DAIBalance)
     expect(actualBurnReturn).to.be.equal(expectedBurnReturn)
   })
 })
