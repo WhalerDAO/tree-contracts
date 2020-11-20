@@ -2,8 +2,8 @@
   "charityCut": 1e17,
   "rewardsCut": 1e17,
   "timelockLength": 259200,
-  "gov": "0x0000000000000000000000000000000000000001",
-  "charity": "0x0000000000000000000000000000000000000002",
+  "gov": "0x703e0bEFF5d4f917b4b97ec8dC6D9ddbC90fb175",
+  "charity": "0x703e0bEFF5d4f917b4b97ec8dC6D9ddbC90fb175",
   "reserveToken": "0x6b175474e89094c44da98b954eedeac495271d0f",
   "uniswapFactory": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
   "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
@@ -16,5 +16,5 @@
   "amb": "0x33d136C1501709Ee020D7A8CA56D44DAcb15e227",
   "l2ChainID": "0x4a",
   "omniBridge": "0xc47192E48F75B612c792833C8b54Ad6BE319af90",
-  "isTesting": true
+  "isTesting": false
 }

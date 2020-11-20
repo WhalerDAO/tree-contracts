@@ -20,7 +20,7 @@ module.exports = {
     ganache: {
       url: 'http://localhost:8545',
       gasLimit: 1e7,
-      gasPrice: 1e11
+      gasPrice: 54e9
     },
     coverage: {
       url: 'http://localhost:8555',
