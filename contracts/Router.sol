@@ -10,6 +10,10 @@ interface I_ERC20 {
     function increaseAllowance(address spender, uint256 addedAmount) public virtual returns (bool);
 }
 
+interface I_TREERewards {
+  function notifyRewardAmount(uint256 reward) external;
+}
+
 
 contract Router {
     using SafeMath for uint256;
@@ -49,6 +53,7 @@ contract Router {
 
     I_ERC20 public tree = I_ERC20(TREE);
     I_ERC20 public reserveToken = I_ERC20(DAI);
+    I_TREERewards public lpRewards;
 
     uint256 private totalPledged;
     uint256 private numPledgers;
@@ -56,9 +61,10 @@ contract Router {
     mapping (uint256 => address) private pledgers;
     mapping (address => uint256) private amountsPledged;
  
-    constructor(address _gov, address _charity, uint256 _charityCut, uint256 _rewardsCut) public {
+    constructor(address _gov, address _charity, address _lpRewards, uint256 _charityCut, uint256 _rewardsCut) public {
         gov = _gov;
         charity = _charity;
+        lpRewards = _lpRewards;
         charityCut = _charityCut;
         rewardsCut = _rewardsCut;
     }
@@ -87,8 +93,7 @@ contract Router {
 
     function unpledge(uint256 _amount, bool max) external payable {
 
-        uint256 pledgerId = getPledgerId(msg.sender);
-        require(pledgerId != 0, "User has not pledged.");
+        require(hasPledged(msg.sender), "User has not pledged.");
         if (max) {_amount = amountsPledged[msg.sender];}
         require(_amount <= amountsPledged[msg.sender], "Cannot unpledge more than already pledged.");
 
@@ -165,11 +170,6 @@ contract Router {
     }
 
 
-    function setReserveToken(address _newToken) external {
-        require(msg.sender == gov, "UniswapRouter: not gov");
-        reserveToken = I_ERC20(_newToken);
-        emit SetReserveToken(_newToken);
-    }
 
 
     function withdrawToken(address _token, address _to, uint256 _amount, bool max) external payable {
@@ -212,6 +212,12 @@ contract Router {
         require(_newValue != address(0), "TREEReserve: address is 0");
         lpRewards = ITREERewards(_newValue);
         emit SetLPRewards(_newValue);
+    }
+
+    function setReserveToken(address _newToken) external {
+        require(msg.sender == gov, "UniswapRouter: not gov");
+        reserveToken = I_ERC20(_newToken);
+        emit SetReserveToken(_newToken);
     }
 
     function setCharityCut(uint256 _newValue) external onlyGov {
