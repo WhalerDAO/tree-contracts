@@ -151,7 +151,8 @@ contract Router {
 
         uint256[] memory amounts = new uint256[](2);
         if (firstRebase) {
-            // move oldReserveBalance to charity (see https://hackmd.io/0-zFSLgrQdGOWLUJUXJMFg?both#Specific-example )
+            // move oldReserveBalance to charity by reversing the code that computes the charityCutAmount
+            // https://github.com/WhalerDAO/tree-contracts/blob/master/contracts/TREEReserve.sol#L173-L175
             amounts[0] = 0;
             amounts[1] = oldReserveBalance.div(charityCut).mul(PRECISION.sub(rewardsCut));
             firstRebase = false;
