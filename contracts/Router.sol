@@ -154,12 +154,12 @@ contract Router {
             // move oldReserveBalance to charity (see https://hackmd.io/0-zFSLgrQdGOWLUJUXJMFg?both#Specific-example )
             amounts[0] = 0;
             amounts[1] = oldReserveBalance.div(charityCut).mul(PRECISION.sub(rewardsCut));
+            firstRebase = false;
         }
         else {
             // Return amounts based on https://github.com/WhalerDAO/tree-contracts/blob/4525d20def8fce41985f0711e9b742a0f3c0d30b/contracts/TREEReserve.sol#L217
             amounts[0] = treeSold;
             amounts[1] = totalPledged;
-            firstRebase = false;
         }
 
         emit Rebase(treeSold, totalPledged);
