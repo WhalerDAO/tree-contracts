@@ -50,6 +50,8 @@ contract Router {
     address private charity;
     uint256 private charityCut;
     uint256 private rewardsCut;
+    unit256 private oldReserveBalance;
+    bool private firstRebase;
 
     I_ERC20 public tree = I_ERC20(TREE);
     I_ERC20 public reserveToken = I_ERC20(DAI);
@@ -61,12 +63,14 @@ contract Router {
     mapping (uint256 => address) private pledgers;
     mapping (address => uint256) private amountsPledged;
  
-    constructor(address _gov, address _charity, address _lpRewards, uint256 _charityCut, uint256 _rewardsCut) public {
+    constructor(address _gov, address _charity, address _lpRewards, uint256 _charityCut, uint256 _rewardsCut, unit256 _oldReserveBalance) public {
         gov = _gov;
         charity = _charity;
         lpRewards = _lpRewards;
         charityCut = _charityCut;
         rewardsCut = _rewardsCut;
+        oldReserveBalance = _oldReserveBalance;
+        firstRebase = true;
     }
 
 
@@ -145,10 +149,18 @@ contract Router {
             delete(pledgers[i]);
         }
 
-        // Return amounts based on https://github.com/WhalerDAO/tree-contracts/blob/4525d20def8fce41985f0711e9b742a0f3c0d30b/contracts/TREEReserve.sol#L217
         uint256[] memory amounts = new uint256[](2);
-        amounts[0] = treeSold;
-        amounts[1] = totalPledged;
+        if (firstRebase) {
+            // move oldReserveBalance to charity (see https://hackmd.io/0-zFSLgrQdGOWLUJUXJMFg?both#Specific-example )
+            amounts[0] = 0;
+            amounts[1] = oldReserveBalance.div(charityCut).mul(PRECISION.sub(rewardsCut));
+        }
+        else {
+            // Return amounts based on https://github.com/WhalerDAO/tree-contracts/blob/4525d20def8fce41985f0711e9b742a0f3c0d30b/contracts/TREEReserve.sol#L217
+            amounts[0] = treeSold;
+            amounts[1] = totalPledged;
+            firstRebase = false;
+        }
 
         emit Rebase(treeSold, totalPledged);
 
