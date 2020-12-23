@@ -162,7 +162,7 @@ contract Router is ReentrancyGuard {
             // note: TREE is already approved to transfer
             // https://github.com/WhalerDAO/tree-contracts/blob/4525d20def8fce41985f0711e9b742a0f3c0d30b/contracts/TREEReserve.sol#L228
             if (!Address.isContract(pledger) && amountPledged > 0) {
-                tree.transfer(pledger, treeToReceive);
+                tree.transferFrom(RESERVE, pledger, treeToReceive);
 
                 delete(amountsPledged[pledger]);
             }
