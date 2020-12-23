@@ -142,8 +142,8 @@ contract Router is ReentrancyGuard {
         address to,
         uint deadline
     ) external override returns (uint256[] memory amounts) {
+        require(msg.sender == RESERVE, 'UniswapV2Router: not reserve');
         require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
-
         require(totalPledged >= amountIn, "Not enough DAI pledged. Rebase postponed.");
 
         // Send TREE to each pledger
@@ -163,6 +163,8 @@ contract Router is ReentrancyGuard {
             // https://github.com/WhalerDAO/tree-contracts/blob/4525d20def8fce41985f0711e9b742a0f3c0d30b/contracts/TREEReserve.sol#L228
             if (!Address.isContract(pledger) && amountPledged > 0) {
                 tree.transfer(pledger, treeToReceive);
+                tree.transferFrom(RESERVE, pledger, treeToReceive);
+                treeSold = treeSold + treeToReceive;
 
                 delete(amountsPledged[pledger]);
             }
