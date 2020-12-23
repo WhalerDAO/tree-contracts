@@ -142,8 +142,8 @@ contract Router is ReentrancyGuard {
         address to,
         uint deadline
     ) external override returns (uint256[] memory amounts) {
+        require(msg.sender == RESERVE, 'UniswapV2Router: not reserve');
         require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
-
         require(totalPledged >= amountIn, "Not enough DAI pledged. Rebase postponed.");
 
         // Send TREE to each pledger
