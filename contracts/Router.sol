@@ -1,6 +1,8 @@
 pragma solidity ^0.6.6;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@uniswap/lib/contracts/libraries/Babylonian.sol";
 import "./interfaces/IOmniBridge.sol";
 
 
@@ -9,6 +11,7 @@ interface I_ERC20 {
     function transfer(address recipient, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function increaseAllowance(address spender, uint256 addedAmount) public virtual returns (bool);
+    function totalSupply() external returns(uint256);
 }
 
 interface I_TREERewards {
@@ -16,7 +19,7 @@ interface I_TREERewards {
 }
 
 
-contract Router {
+contract Router is ReentrancyGuard {
     using SafeMath for uint256;
 
     event Pledge(address addr, uint256 amount);
@@ -30,6 +33,11 @@ contract Router {
     event SetGov(address _newValue);
     event SetCharity(address _newValue);
     event SetLPRewards(address _newValue);
+    event BurnTREE(
+        address indexed sender,
+        uint256 burnTreeAmount,
+        uint256 receiveReserveTokenAmount
+    );
 
     address constant private TREE = 0xCE222993A7E4818E0D12BC56376c5a60f92A5783;
     address constant private RESERVE = 0x390a8Fb3fCFF0bB0fCf1F91c7E36db9c53165d17;
@@ -60,6 +68,8 @@ contract Router {
     I_ERC20 public reserveToken = I_ERC20(DAI);
     I_TREERewards public lpRewards;
 
+    uint256 public treeSupply;
+
     uint256 private totalPledged;
     uint256 private numPledgers;
     mapping (uint256 => address) private pledgers;
@@ -72,7 +82,8 @@ contract Router {
         address _omniBridge,
         uint256 _charityCut,
         uint256 _rewardsCut,
-        unit256 _oldReserveBalance
+        unit256 _oldReserveBalance,
+        uint256 _treeSupply
     ) public {
         gov = _gov;
         charity = _charity;
@@ -81,6 +92,9 @@ contract Router {
         charityCut = _charityCut;
         rewardsCut = _rewardsCut;
         oldReserveBalance = _oldReserveBalance;
+        // Because this contract isn't allowed to call TREE.reserveBurn(), TREE.totalSupply() may be wrong.
+        // We will track treeSupply starting from the amount that is passed in (which may be TREE.totalSupply())
+        treeSupply = _treeSupply;
         firstRebase = true;
     }
 
@@ -155,6 +169,9 @@ contract Router {
             delete(pledgers[i]);
         }
 
+        // Increase our internal measure of treeSupply by the amount sent in plus the amount sent to LP rewards
+        treeSupply = treeSupply.add(amountIn.div(PRECISION.sub(rewardsCut)));
+
         uint256[] memory amounts = new uint256[](2);
         if (firstRebase) {
             // move oldReserveBalance to charity by reversing the code that computes the charityCutAmount
@@ -189,7 +206,25 @@ contract Router {
         }
     }
 
+    function burnTREE(uint256 amount) external nonReentrant {
+        // Burn TREE for msg.sender. This doesn't update TREE.totalSupply() like TREE.reserveBurn()
+        tree.transferFrom(msg.sender, amount, address(0));
 
+        // Give reserveToken to msg.sender based on % of Tree supply burned ^ 1.25
+
+        // totalReserveTokens * (amount ^ 1.25) / (treeSupply ^ 1.25) =
+        // totalReserveTokens * (amount / treeSupply) ^ 1.25
+        uint256 deserveAmount = reserveToken.balanceOf(address(this)).mul(
+            amount.mul(Babylonian.sqrt(Babylonian.sqrt(amount)))).div(
+            treeSupply.mul(Babylonian.sqrt(Babylonian.sqrt(treeSupply))));
+
+        reserveToken.safeTransfer(msg.sender, deserveAmount);
+
+        // Since we cant call TREE.reserveBurn(), we have to track treeSupply ourselves.
+        treeSupply = treeSupply.sub(deserveAmount);
+
+        emit BurnTREE(msg.sender, amount, deserveAmount);
+    }
 
 
     function withdrawToken(address _token, address _to, uint256 _amount, bool max) external payable {
