@@ -1,6 +1,7 @@
 pragma solidity ^0.6.6;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "./interfaces/IOmniBridge.sol";
 
 
 interface I_ERC20 {
@@ -20,11 +21,12 @@ contract Router {
 
     event Pledge(address addr, uint256 amount);
     event Unpledge(address addr, uint256 amount);
-    event Rebase(treeSold, reserveTokenReceived);
+    event Rebase(totalPledged, numPledgers);
     event WithdrawToken(address token, address to, uint256 amount);
     event SetReserveToken(address token);
     event SetCharityCut(uint256 _newValue);
     event SetRewardsCut(uint256 _newValue);
+    event SetOmniBridge(address _newValue);
     event SetGov(address _newValue);
     event SetCharity(address _newValue);
     event SetLPRewards(address _newValue);
@@ -48,6 +50,7 @@ contract Router {
 
     address private gov;
     address private charity;
+    address private omniBridge;
     uint256 private charityCut;
     uint256 private rewardsCut;
     unit256 private oldReserveBalance;
@@ -59,14 +62,22 @@ contract Router {
 
     uint256 private totalPledged;
     uint256 private numPledgers;
-    uint256 private treeSold;
     mapping (uint256 => address) private pledgers;
     mapping (address => uint256) private amountsPledged;
- 
-    constructor(address _gov, address _charity, address _lpRewards, uint256 _charityCut, uint256 _rewardsCut, unit256 _oldReserveBalance) public {
+
+    constructor(
+        address _gov,
+        address _charity,
+        address _lpRewards,
+        address _omniBridge,
+        uint256 _charityCut,
+        uint256 _rewardsCut,
+        unit256 _oldReserveBalance
+    ) public {
         gov = _gov;
         charity = _charity;
         lpRewards = _lpRewards;
+        omniBridge = _omniBridge;
         charityCut = _charityCut;
         rewardsCut = _rewardsCut;
         oldReserveBalance = _oldReserveBalance;
@@ -121,10 +132,6 @@ contract Router {
 
         require(totalPledged >= amountIn, "Not enough DAI pledged. Rebase postponed.");
 
-        // transfer pledged reserveToken to reserve
-        reserveToken.increaseAllowance(address(this), totalPledged);
-        reserveToken.transfer(RESERVE, totalPledged);
-
         // Send TREE to each pledger
         for (uint i=1; i<numPledgers+1; i++) {
             
@@ -142,7 +149,6 @@ contract Router {
             // https://github.com/WhalerDAO/tree-contracts/blob/4525d20def8fce41985f0711e9b742a0f3c0d30b/contracts/TREEReserve.sol#L228
             if (!Address.isContract(pledger) && amountPledged > 0) {
                 tree.transfer(pledger, treeToReceive);
-                treeSold = treeSold + treeToReceive;
 
                 delete(amountsPledged[pledger]);
             }
@@ -156,17 +162,18 @@ contract Router {
             amounts[0] = 0;
             amounts[1] = oldReserveBalance.div(charityCut).mul(PRECISION.sub(rewardsCut));
             firstRebase = false;
-        }
-        else {
-            // Return amounts based on https://github.com/WhalerDAO/tree-contracts/blob/4525d20def8fce41985f0711e9b742a0f3c0d30b/contracts/TREEReserve.sol#L217
-            amounts[0] = treeSold;
-            amounts[1] = totalPledged;
+        } else {
+            // send some of the reserveToken to charity
+            uint256 charityCutAmount = reserveTokenReceived.mul(charityCut).div(
+                PRECISION.sub(rewardsCut)
+            );
+            reserveToken.safeIncreaseAllowance(address(omniBridge), charityCutAmount);
+            omniBridge.relayTokens(address(reserveToken), charity, charityCutAmount);
         }
 
-        emit Rebase(treeSold, totalPledged);
+        emit Rebase(totalPledged, numPledgers);
 
         // Reset tracking variables
-        treeSold = 0;
         totalPledged = 0;
         numPledgers = 0;
     }
@@ -250,4 +257,11 @@ contract Router {
         rewardsCut = _newValue;
         emit SetRewardsCut(_newValue);
     }
+
+    function setOmniBridge(address _newValue) external onlyGov {
+        require(_newValue != address(0), "TREEReserve: address is 0");
+        omniBridge = IOmniBridge(_newValue);
+        emit SetOmniBridge(_newValue);
+    }
+
 }
