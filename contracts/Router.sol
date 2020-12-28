@@ -50,8 +50,8 @@ contract Router {
     address private charity;
     uint256 private charityCut;
     uint256 private rewardsCut;
-    unit256 private oldReserveBalance;
-    bool private firstRebase;
+    uint256 private oldReserveBalance;
+    bool private hasTransferredOldReserveBalance;
 
     I_ERC20 public tree = I_ERC20(TREE);
     I_ERC20 public reserveToken = I_ERC20(DAI);
@@ -70,7 +70,6 @@ contract Router {
         charityCut = _charityCut;
         rewardsCut = _rewardsCut;
         oldReserveBalance = _oldReserveBalance;
-        firstRebase = true;
     }
 
 
@@ -150,12 +149,12 @@ contract Router {
         }
 
         uint256[] memory amounts = new uint256[](2);
-        if (firstRebase) {
+        if (!hasTransferredOldReserveBalance) {
             // move oldReserveBalance to charity by reversing the code that computes the charityCutAmount
             // https://github.com/WhalerDAO/tree-contracts/blob/master/contracts/TREEReserve.sol#L173-L175
             amounts[0] = 0;
             amounts[1] = oldReserveBalance.div(charityCut).mul(PRECISION.sub(rewardsCut));
-            firstRebase = false;
+            hasTransferredOldReserveBalance = true;
         }
         else {
             // Return amounts based on https://github.com/WhalerDAO/tree-contracts/blob/4525d20def8fce41985f0711e9b742a0f3c0d30b/contracts/TREEReserve.sol#L217
@@ -183,14 +182,13 @@ contract Router {
     }
 
 
-
-
     function withdrawToken(address _token, address _to, uint256 _amount, bool max) external payable {
         require(msg.sender == gov, "UniswapRouter: not gov");
         if (max) {_amount = I_ERC20(_token).balanceOf(address(this));}
         I_ERC20(_token).transfer(_to, _amount);
         emit WithdrawToken(_token, _to, _amount);
     }
+
 
     function getTotalPledged() public view returns (uint256) {
         return totalPledged;
