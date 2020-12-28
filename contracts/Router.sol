@@ -148,7 +148,6 @@ contract Router {
             delete(pledgers[i]);
         }
 
-        uint256[] memory amounts = new uint256[](2);
         if (!hasTransferredOldReserveBalance) {
             // move oldReserveBalance to charity by reversing the code that computes the charityCutAmount
             // https://github.com/WhalerDAO/tree-contracts/blob/master/contracts/TREEReserve.sol#L173-L175
