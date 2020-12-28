@@ -209,6 +209,10 @@ contract Router {
         return amountsPledged[_addr];
     }
 
+    function getClaimAmount(address _addr) external view returns (uint256) {
+        return amountsClaimable[_addr];
+    }
+
     function getGov() external view returns (address) {return gov;}
     function getCharity() external view returns (address) {return charity;}
     function getCharityCut() external view returns (uint256) {return charityCut;}
