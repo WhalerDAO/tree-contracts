@@ -62,8 +62,8 @@ contract Router {
     uint256 private treeSold;
     mapping (uint256 => address) private pledgers;
     mapping (address => uint256) private amountsPledged;
- 
-    constructor(address _gov, address _charity, address _lpRewards, uint256 _charityCut, uint256 _rewardsCut, unit256 _oldReserveBalance) public {
+
+    constructor(address _gov, address _charity, address _lpRewards, uint256 _charityCut, uint256 _rewardsCut, uint256 _oldReserveBalance) public {
         gov = _gov;
         charity = _charity;
         lpRewards = _lpRewards;
