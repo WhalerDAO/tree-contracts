@@ -20,6 +20,7 @@ contract Router {
 
     event Pledge(address addr, uint256 amount);
     event Unpledge(address addr, uint256 amount);
+    event Claim(address addr, uint256 amount);
     event Rebase(treeSold, reserveTokenReceived);
     event WithdrawToken(address token, address to, uint256 amount);
     event SetReserveToken(address token);
@@ -62,6 +63,7 @@ contract Router {
     uint256 private treeSold;
     mapping (uint256 => address) private pledgers;
     mapping (address => uint256) private amountsPledged;
+    mapping (address => uint256) private amountsClaimable;
 
     constructor(address _gov, address _charity, address _lpRewards, uint256 _charityCut, uint256 _rewardsCut, uint256 _oldReserveBalance) public {
         gov = _gov;
@@ -95,7 +97,6 @@ contract Router {
 
 
     function unpledge(uint256 _amount, bool max) external payable {
-
         require(hasPledged(msg.sender), "User has not pledged.");
         if (max) {_amount = amountsPledged[msg.sender];}
         require(_amount <= amountsPledged[msg.sender], "Cannot unpledge more than already pledged.");
@@ -106,6 +107,19 @@ contract Router {
         reserveToken.transfer(msg.sender, _amount);
 
         emit Unpledge(msg.sender, _amount);
+    }
+
+
+    function claim(uint256 _amount, bool max) external payable {
+        require(_amount == 0 && !max, "Need to claim amount or set max to true.");
+        require(_amount <= amountsClaimable[msg.sender] && !max, "Cannot claim more than amount claimable.");
+
+        if (max) {_amount = amountsClaimable[msg.sender];}
+        amountsClaimable[msg.sender] = amountsClaimable[msg.sender] - _amount;
+        
+        tree.transfer(msg.sender, _amount);
+
+        emit Claim(msg.sender, _amount);
     }
 
 
@@ -124,24 +138,18 @@ contract Router {
         reserveToken.increaseAllowance(address(this), totalPledged);
         reserveToken.transfer(RESERVE, totalPledged);
 
-        // Send TREE to each pledger
+        // Update TREE claimable for each pledger
         for (uint i=1; i<numPledgers+1; i++) {
-            
             address pledger = pledgers[i];
             uint256 amountPledged = amountsPledged[pledger];
 
-            // treeToReceive = value pledged * (amountIn / totalPledged)
-            // For example, if 100 DAI is pledged and there's only 50 TREE available
-            // an address that pledged 5 DAI would receive 5 * (50/100) = 2.5 TREE
-            uint256 treeToReceive = amountPledged.mul(amountIn).div(totalPledged);
-
-            // Only transfer to EOAs to prevent unexpected reverts if pledge was done using CREATE2
-            // Also, if user ended up unpledging 100%, do not waste a transfer of 0 tokens
-            // note: TREE is already approved to transfer
-            // https://github.com/WhalerDAO/tree-contracts/blob/4525d20def8fce41985f0711e9b742a0f3c0d30b/contracts/TREEReserve.sol#L228
-            if (!Address.isContract(pledger) && amountPledged > 0) {
-                tree.transferFrom(RESERVE, pledger, treeToReceive);
+            if (amountPledged > 0) {
+                // treeToReceive = value pledged * (amountIn / totalPledged)
+                // For example, if 100 DAI is pledged and there's only 50 TREE available
+                // an address that pledged 5 DAI would receive 5 * (50/100) = 2.5 TREE
+                uint256 treeToReceive = amountPledged.mul(amountIn).div(totalPledged);
                 treeSold = treeSold + treeToReceive;
+                amountsClaimable[pledger] = amountsClaimable[pledger] + treeToReceive;
 
                 delete(amountsPledged[pledger]);
             }
