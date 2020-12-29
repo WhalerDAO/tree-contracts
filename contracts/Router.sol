@@ -74,6 +74,7 @@ contract Router is ReentrancyGuard {
     I_TREERewards public lpRewards;
 
     uint256 public treeSupply;
+    uint256 public totalReserveClaimable;
 
     uint256 public totalPledged;
     uint256 public numPledgers;
@@ -195,9 +196,12 @@ contract Router is ReentrancyGuard {
         require(claimable > 0, "No reserve claimable from this address.");
 
         reserveToken.transfer(msg.sender, claimable);
-        emit ClaimReserve(msg.sender, claimable);
+
+        totalReserveClaimable = totalReserveClaimable.sub(claimable);
 
         delete(reserveClaimable[msg.sender]);
+
+        emit ClaimReserve(msg.sender, claimable);
     }
 
 
@@ -235,8 +239,9 @@ contract Router is ReentrancyGuard {
 	    tree.transferFrom(msg.sender, address(this), amountIn);
 
 	    if (totalInBurnPool > 0) {
-            uint reserveToDistribute = (reserveToken.balanceOf(address(this)).sub(totalPledged)).mul(
-                Babylonian.sqrt(totalInBurnPool)).div(Babylonian.sqrt(treeSupply));
+            uint reserveToDistribute =
+                (reserveToken.balanceOf(address(this)).sub(totalPledged).sub(totalReserveClaimable))
+                .mul(Babylonian.sqrt(totalInBurnPool)).div(Babylonian.sqrt(treeSupply));
 
             // Update reserve token claimable for each burner
             for (uint i = 1; i <= numBurners; i++) {
@@ -254,6 +259,8 @@ contract Router is ReentrancyGuard {
                 }
                 delete (burners[i]);
             }
+
+            totalReserveClaimable = totalReserveClaimable.add(reserveToDistribute);
 
 		    // Burn the TREE
 		    tree.transfer(address(0), totalInBurnPool);
