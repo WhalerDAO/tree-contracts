@@ -1,6 +1,7 @@
 pragma solidity ^0.6.6;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 
 interface I_ERC20 {
@@ -84,11 +85,9 @@ contract Router {
 
         totalPledged = totalPledged + _amount;
 
-        uint256 pledgerId = getPledgerId(msg.sender);
-        if (pledgerId == 0) {
-            // user has not pledged before
-            pledgerId = numPledgers++;
-            pledgers[pledgerId] = msg.sender;
+        if (amountsPledged[msg.sender] == 0) {
+            // User has not pledged before. Add them to pledgers[] so we can loop over them.
+            pledgers[++numPledgers] = msg.sender;
         }
         amountsPledged[msg.sender] = amountsPledged[msg.sender].add(_amount);
 
@@ -110,16 +109,13 @@ contract Router {
     }
 
 
-    function claim(uint256 _amount, bool max) external payable {
-        require(_amount == 0 && !max, "Need to claim amount or set max to true.");
-        require(_amount <= amountsClaimable[msg.sender] && !max, "Cannot claim more than amount claimable.");
-
-        if (max) {_amount = amountsClaimable[msg.sender];}
-        amountsClaimable[msg.sender] = amountsClaimable[msg.sender] - _amount;
+    function claim() external nonReentrant {
+        uint256 claimable = amountsClaimable[msg.sender];
         
-        tree.transfer(msg.sender, _amount);
+        tree.transfer(msg.sender, claimable);
+        emit Claim(msg.sender, claimable);
 
-        emit Claim(msg.sender, _amount);
+        delete(amountsClaimable[msg.sender]);
     }
 
 
@@ -139,7 +135,7 @@ contract Router {
         reserveToken.transfer(RESERVE, totalPledged);
 
         // Update TREE claimable for each pledger
-        for (uint i=1; i<numPledgers+1; i++) {
+        for (uint i=1; i<=numPledgers; i++) {
             address pledger = pledgers[i];
             uint256 amountPledged = amountsPledged[pledger];
 
@@ -148,8 +144,8 @@ contract Router {
                 // For example, if 100 DAI is pledged and there's only 50 TREE available
                 // an address that pledged 5 DAI would receive 5 * (50/100) = 2.5 TREE
                 uint256 treeToReceive = amountPledged.mul(amountIn).div(totalPledged);
-                treeSold = treeSold + treeToReceive;
-                amountsClaimable[pledger] = amountsClaimable[pledger] + treeToReceive;
+                treeSold = treeSold.add(treeToReceive);
+                amountsClaimable[pledger] = amountsClaimable[pledger].add(treeToReceive);
 
                 delete(amountsPledged[pledger]);
             }
@@ -175,17 +171,6 @@ contract Router {
         treeSold = 0;
         totalPledged = 0;
         numPledgers = 0;
-    }
-
-
-    function getPledgerId(address _addr) private returns (uint256 pledgerId) {
-        pledgerId = 0;
-        for (uint i=1; i < numPledgers+1; i++) {
-            if (pledgers[i] == _addr) {
-                pledgerId = i;
-                break;
-            }
-        }
     }
 
 
