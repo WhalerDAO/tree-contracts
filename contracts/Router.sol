@@ -239,6 +239,11 @@ contract Router is ReentrancyGuard {
 	    tree.transferFrom(msg.sender, address(this), amountIn);
 
 	    if (totalInBurnPool > 0) {
+            // To find how much of the reserve is available to distribute, start with the reserve balance in this
+            // contract, subtract the total that was just pledged, subtract the reserve that is waiting to be claimed
+            // from previous burns. Multiply this by the square root of the percentage of TREE in the burn pool.
+            // For example, if 49% of the TREE supply is being burned, 70% (sqrt .49 = .70) of the available reserve
+            // will be distributed proportionally to contributors to the burn pool.
             uint reserveToDistribute =
                 (reserveToken.balanceOf(address(this)).sub(totalPledged).sub(totalReserveClaimable))
                 .mul(Babylonian.sqrt(totalInBurnPool)).div(Babylonian.sqrt(treeSupply));
@@ -249,9 +254,8 @@ contract Router is ReentrancyGuard {
                 uint256 amountBurned = amountsBurned[burner];
 
                 if (amountBurned > 0) {
-                    // treeToReceive = value pledged * (amountIn / totalPledged)
-                    // For example, if 100 DAI is pledged and there's only 50 TREE available
-                    // an address that pledged 5 DAI would receive 5 * (50/100) = 2.5 TREE
+                    // reserveToReceive = reserveToDistribute * (amountBurned / totalInBurnPool)
+                    // Everyone gets available reserve tokens back proportional to their share of the burn pool.
                     uint256 reserveToReceive = amountBurned.mul(reserveToDistribute).div(totalInBurnPool);
                     reserveClaimable[burner] = reserveClaimable[burner].add(reserveToReceive);
 
