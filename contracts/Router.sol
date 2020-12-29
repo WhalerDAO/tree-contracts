@@ -29,7 +29,7 @@ contract Router is ReentrancyGuard {
 
     event Pledge(address indexed sender, uint256 amount);
     event Unpledge(address indexed sender, uint256 amount);
-    event ClaimTREE(address indexed sender, uint256 amount);
+    event ClaimTree(address indexed sender, uint256 amount);
     event Rebase(totalPledged, numPledgers, totalBurned, numBurners);
     event WithdrawToken(address token, address to, uint256 amount);
     event SetReserveToken(address token);
@@ -149,7 +149,7 @@ contract Router is ReentrancyGuard {
         require(claimable > 0, "No TREE claimable from this address.");
 
         tree.transfer(msg.sender, claimable);
-        emit ClaimTREE(msg.sender, claimable);
+        emit ClaimTree(msg.sender, claimable);
 
         delete(treeClaimable[msg.sender]);
     }
