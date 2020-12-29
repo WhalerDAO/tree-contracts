@@ -76,7 +76,6 @@ contract Router is ReentrancyGuard {
     mapping (uint256 => address) private pledgers;
     mapping (address => uint256) private amountsPledged;
     mapping (address => uint256) private amountsClaimable;
-    
 
     constructor(
         address _gov,
@@ -111,11 +110,9 @@ contract Router is ReentrancyGuard {
 
         totalPledged = totalPledged + _amount;
 
-        uint256 pledgerId = getPledgerId(msg.sender);
-        if (pledgerId == 0) {
-            // user has not pledged before
-            pledgerId = numPledgers++;
-            pledgers[pledgerId] = msg.sender;
+        if (amountsPledged[msg.sender] == 0) {
+            // User has not pledged before. Add them to pledgers[] so we can loop over them.
+            pledgers[++numPledgers] = msg.sender;
         }
         amountsPledged[msg.sender] = amountsPledged[msg.sender].add(_amount);
 
@@ -137,16 +134,13 @@ contract Router is ReentrancyGuard {
     }
 
 
-    function claim(uint256 _amount, bool max) external payable {
-        require(_amount == 0 && !max, "Need to claim amount or set max to true.");
-        require(_amount <= amountsClaimable[msg.sender] && !max, "Cannot claim more than amount claimable.");
-
-        if (max) {_amount = amountsClaimable[msg.sender];}
-        amountsClaimable[msg.sender] = amountsClaimable[msg.sender] - _amount;
+    function claim() external nonReentrant {
+        uint256 claimable = amountsClaimable[msg.sender];
         
-        tree.transfer(msg.sender, _amount);
+        tree.transfer(msg.sender, claimable);
+        emit Claim(msg.sender, claimable);
 
-        emit Claim(msg.sender, _amount);
+        delete(amountsClaimable[msg.sender]);
     }
 
 
@@ -167,18 +161,17 @@ contract Router is ReentrancyGuard {
         reserveToken.transfer(RESERVE, totalPledged);
 
         // Update TREE claimable for each pledger
-        for (uint i=1; i<numPledgers+1; i++) {
+        for (uint i=1; i<=numPledgers; i++) {
             address pledger = pledgers[i];
             uint256 amountPledged = amountsPledged[pledger];
-
 
             if (amountPledged > 0) {
                 // treeToReceive = value pledged * (amountIn / totalPledged)
                 // For example, if 100 DAI is pledged and there's only 50 TREE available
                 // an address that pledged 5 DAI would receive 5 * (50/100) = 2.5 TREE
                 uint256 treeToReceive = amountPledged.mul(amountIn).div(totalPledged);
-                treeSold = treeSold + treeToReceive;
-                amountsClaimable[pledger] = amountsClaimable[pledger] + treeToReceive;
+                treeSold = treeSold.add(treeToReceive);
+                amountsClaimable[pledger] = amountsClaimable[pledger].add(treeToReceive);
 
                 delete(amountsPledged[pledger]);
             }
@@ -210,16 +203,6 @@ contract Router is ReentrancyGuard {
         numPledgers = 0;
     }
 
-
-    function getPledgerId(address _addr) private returns (uint256 pledgerId) {
-        pledgerId = 0;
-        for (uint i=1; i < numPledgers+1; i++) {
-            if (pledgers[i] == _addr) {
-                pledgerId = i;
-                break;
-            }
-        }
-    }
 
     function burnTREE(uint256 amount) external nonReentrant {
         // Burn TREE for msg.sender. This doesn't update TREE.totalSupply() like TREE.reserveBurn()
@@ -259,6 +242,10 @@ contract Router is ReentrancyGuard {
 
     function getPledgeAmount(address _addr) external view returns (uint256) {
         return amountsPledged[_addr];
+    }
+
+    function getClaimAmount(address _addr) external view returns (uint256) {
+        return amountsClaimable[_addr];
     }
 
     function getGov() external view returns (address) {return gov;}
