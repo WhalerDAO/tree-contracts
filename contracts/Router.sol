@@ -66,7 +66,6 @@ contract Router is ReentrancyGuard {
     address public omniBridge;
     uint256 public charityCut;
     uint256 public rewardsCut;
-//    uint256 public targetPriceMultiplier = 1002 * 10**15; // 1.002%
     uint256 public oldReserveBalance;
     bool public hasTransferredOldReserveBalance;
 
@@ -75,7 +74,6 @@ contract Router is ReentrancyGuard {
     I_TREERewards public lpRewards;
 
     uint256 public treeSupply;
-//    uint256 public targetPrice;
 
     uint256 public totalPledged;
     uint256 public numPledgers;
@@ -97,9 +95,7 @@ contract Router is ReentrancyGuard {
         uint256 _charityCut,
         uint256 _rewardsCut,
         uint256 _oldReserveBalance,
-        uint256 _treeSupply//,
-//        uint256 _targetPrice,
-//        uint256 _targetPriceMultiplier
+        uint256 _treeSupply
     ) public {
         gov = _gov;
         charity = _charity;
@@ -111,8 +107,6 @@ contract Router is ReentrancyGuard {
         // Because this contract isn't allowed to call TREE.reserveBurn(), TREE.totalSupply() may be wrong.
         // We will track treeSupply starting from the amount that is passed in (which may be TREE.totalSupply())
         treeSupply = _treeSupply;
-//        targetPrice = _targetPrice;
-//        targetPriceMultiplier = _targetPriceMultiplier;
     }
 
 
@@ -289,9 +283,6 @@ contract Router is ReentrancyGuard {
         totalInBurnPool = 0;
         numBurners = 0;
 
-        // Increase targetPrice after a successful rebase
-	    //
-        // targetPrice = targetPrice.mul(targetPriceMultiplier).div(PRECISION);
     }
 
 
@@ -369,10 +360,5 @@ contract Router is ReentrancyGuard {
         omniBridge = IOmniBridge(_newValue);
         emit SetOmniBridge(_newValue);
     }
-
-//    function setTargetPriceMultiplier(uint256 _newValue) external onlyGov {
-//        targetPriceMultiplier _newValue;
-//        emit SetTargetPriceMultiplier(_newValue);
-//    }
 
 }
