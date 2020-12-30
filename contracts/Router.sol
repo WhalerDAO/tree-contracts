@@ -246,7 +246,7 @@ contract Router is ReentrancyGuard {
 
 	    tree.transferFrom(msg.sender, address(this), amountIn);
 
-	    if (totalInBurnPool > 0) {
+	    if (totalInBurnPool > 0 && hasTransferredOldReserveBalance) {
             // To find how much of the reserve is available to distribute, start with the reserve balance in this
             // contract, subtract the total that was just pledged, subtract the reserve that is waiting to be claimed
             // from previous burns. Multiply this by the square root of the percentage of TREE in the burn pool.
