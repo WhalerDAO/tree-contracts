@@ -60,14 +60,22 @@ contract Router is ReentrancyGuard {
     uint256 public constant MIN_REWARDS_CUT = 5 * 10**15; // 0.5%
     /// @notice the maximum value of rewardsCut
     uint256 public constant MAX_REWARDS_CUT = 10**17; // 10%
+    /// @notice the minimum value of targetPriceMultiplier
+    // 100 * 10**16 = 100% (Target price doesn't increase)
+    uint256 public constant MIN_TARGET_PRICE_MULTIPLIER = 100 * 10**16;
+    /// @notice the maximum value of targetPriceMultiplier
+    // 110 * 10**16 = 110% (Target price increases by 10% after each rebase)
+    uint256 public constant MAX_TARGET_PRICE_MULTIPLIER = 110 * 10**16;
 
 	address public gov;
 	address public charity;
 	address public omniBridge;
 	uint256 public charityCut;
 	uint256 public rewardsCut;
-	uint256 public targetPriceMultiplier = 1002 * 10 ** 15; // 1.002%
-	uint256 public oldReserveBalance;
+    // 1002 * 10**15 = 100.2% . Sensible default. If targetPriceMultiplier is 100.2% and there are 365 rebases in one
+    // year, there will be an APY of 107%.
+    uint256 public targetPriceMultiplier = 1002 * 10 ** 15;
+    uint256 public oldReserveBalance;
 	bool public hasTransferredOldReserveBalance;
 
     I_ERC20 public tree = I_ERC20(TREE);
@@ -388,6 +396,10 @@ contract Router is ReentrancyGuard {
     }
 
 	function setTargetPriceMultiplier(uint256 _newValue) external onlyGov {
+        require(
+            _newValue >= MIN_TARGET_PRICE_MULTIPLIER && _newValue <= MAX_TARGET_PRICE_MULTIPLIER,
+            "TREEReserve: value out of range"
+        );
 		targetPriceMultiplier _newValue;
 		emit SetTargetPriceMultiplier(_newValue);
 	}
