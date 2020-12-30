@@ -220,8 +220,12 @@ contract Router is ReentrancyGuard {
 	) external override returns (uint256[] memory amounts) {
 		require(msg.sender == RESERVE, 'UniswapV2Router: not reserve');
 		require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
-		require(totalPledged >= amountIn.mul(targetPrice),
-			"Not enough tokens pledged to reach target price. Rebase postponed.");
+		require(totalPledged >= amountIn, "Not enough tokens pledged to reach target price. Rebase postponed.");
+
+        // The old reserve mints TREE based on a target price of 1 Dai. Distribute fewer TREE based on the
+        // real targetPrice and burn the rest.
+        uint treeToDistribute = amountIn.mul(PRECISION).div(targetPrice);
+        uint treeBurned = amountIn.sub(treeToDistribute);
 
         // Update TREE claimable for each pledger
         for (uint i = 1; i <= numPledgers; i++) {
@@ -232,7 +236,7 @@ contract Router is ReentrancyGuard {
                 // treeToReceive = value pledged * (amountIn / totalPledged)
                 // For example, if 100 DAI is pledged and there's only 50 TREE available
                 // an address that pledged 5 DAI would receive 5 * (50/100) = 2.5 TREE
-                uint256 treeToReceive = amountPledged.mul(amountIn).div(totalPledged);
+                uint256 treeToReceive = amountPledged.mul(treeToDistribute).div(totalPledged);
                 treeClaimable[pledger] = treeClaimable[pledger].add(treeToReceive);
 
                 delete(amountsPledged[pledger]);
@@ -270,13 +274,17 @@ contract Router is ReentrancyGuard {
 
             totalReserveClaimable = totalReserveClaimable.add(reserveToDistribute);
 
-		    // Burn the TREE
-		    tree.transfer(address(0), totalInBurnPool);
+		    // Add the totalInBurnPool to the tree to be burned
+		    treeBurned.add(totalInBurnPool);
+        }
+
+        if(treeBurned > 0) {
+            tree.transfer(address(0), treeBurned);
         }
 
         // Increase our internal measure of treeSupply by the amount sent in plus the amount sent to LP rewards
         // minus the amount burned
-        treeSupply = treeSupply.add(amountIn.div(PRECISION.sub(rewardsCut))).sub(totalInBurnPool);
+        treeSupply = treeSupply.add(amountIn.div(PRECISION.sub(rewardsCut))).sub(treeBurned);
 
         if (!hasTransferredOldReserveBalance) {
             // move oldReserveBalance to charity by reversing the code that computes the charityCutAmount
