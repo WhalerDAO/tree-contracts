@@ -219,6 +219,8 @@ contract Router is ReentrancyGuard {
 	    // Another option is to let people pledge Dai and then convert to the reserve token.
         require(totalPledged >= amountIn, "Not enough tokens pledged. Rebase postponed.");
 
+        uint treeBurned = 0;
+
         // Update TREE claimable for each pledger
         for (uint i = 1; i <= numPledgers; i++) {
             address pledger = pledgers[i];
@@ -238,7 +240,7 @@ contract Router is ReentrancyGuard {
 
 	    tree.transferFrom(msg.sender, address(this), amountIn);
 
-	    if (totalInBurnPool > 0) {
+	    if (totalInBurnPool > 0 && hasTransferredOldReserveBalance) {
             // To find how much of the reserve is available to distribute, start with the reserve balance in this
             // contract, subtract the total that was just pledged, subtract the reserve that is waiting to be claimed
             // from previous burns. Multiply this by the square root of the percentage of TREE in the burn pool.
@@ -268,11 +270,12 @@ contract Router is ReentrancyGuard {
 
 		    // Burn the TREE
 		    tree.transfer(address(0), totalInBurnPool);
+            treeBurned.add(totalInBurnPool);
         }
 
         // Increase our internal measure of treeSupply by the amount sent in plus the amount sent to LP rewards
         // minus the amount burned
-        treeSupply = treeSupply.add(amountIn.div(PRECISION.sub(rewardsCut))).sub(totalInBurnPool);
+        treeSupply = treeSupply.add(amountIn.div(PRECISION.sub(rewardsCut))).sub(treeBurned);
 
         if (!hasTransferredOldReserveBalance) {
             // move oldReserveBalance to charity by reversing the code that computes the charityCutAmount
