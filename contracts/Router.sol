@@ -10,12 +10,17 @@ interface I_ERC20 {
     function balanceOf(address account) external view returns (uint256);
     function transfer(address recipient, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    function increaseAllowance(address spender, uint256 addedAmount) public virtual returns (bool);
+    function increaseAllowance(address spender, uint256 addedAmount) external virtual returns (bool);
     function totalSupply() external returns(uint256);
 }
 
 interface I_TREERewards {
 	function notifyRewardAmount(uint256 reward) external;
+}
+
+interface I_OmniBridge {
+  function relayTokens(address token, address _receiver, uint256 _value) external;
+  function mediatorBalance(address _token) external view returns (uint256);
 }
 
 
@@ -30,8 +35,8 @@ contract Router is ReentrancyGuard {
     event Pledge(address indexed sender, uint256 amount);
     event Unpledge(address indexed sender, uint256 amount);
     event ClaimTree(address indexed sender, uint256 amount);
-    event Rebase(totalPledged, numPledgers, totalBurned, numBurners);
     event WithdrawToken(address token, address to, uint256 amount);
+    event Rebase(uint256 totalPledged, uint256 numPledgers, uint256 totalBurned, uint256 numBurners);
     event SetReserveToken(address token);
     event SetCharityCut(uint256 _newValue);
     event SetRewardsCut(uint256 _newValue);
@@ -69,7 +74,6 @@ contract Router is ReentrancyGuard {
 
 	address public gov;
 	address public charity;
-	address public omniBridge;
 	uint256 public charityCut;
 	uint256 public rewardsCut;
     // 1002 * 10**15 = 100.2% . Sensible default. If targetPriceMultiplier is 100.2% and there are 365 rebases in one
@@ -81,6 +85,7 @@ contract Router is ReentrancyGuard {
     I_ERC20 public tree = I_ERC20(TREE);
     I_ERC20 public reserveToken = I_ERC20(DAI);
     I_TREERewards public lpRewards;
+    I_OmniBridge public omniBridge;
 
 	uint256 public treeSupply;
 	uint256 public targetPrice;
@@ -112,8 +117,8 @@ contract Router is ReentrancyGuard {
 	) public {
 		gov = _gov;
 		charity = _charity;
-		lpRewards = _lpRewards;
-		omniBridge = _omniBridge;
+		lpRewards = I_TREERewards(_lpRewards);
+		omniBridge = I_OmniBridge(_omniBridge);
 		charityCut = _charityCut;
 		rewardsCut = _rewardsCut;
 		oldReserveBalance = _oldReserveBalance;
@@ -145,12 +150,12 @@ contract Router is ReentrancyGuard {
 
 
     function unpledge(uint256 _amount, bool max) external nonReentrant {
-        require(hasPledged(msg.sender), "User has not pledged.");
+        require(amountsPledged[msg.sender] > 0, "User has not pledged.");
         if (max) {_amount = amountsPledged[msg.sender];}
         require(_amount <= amountsPledged[msg.sender], "Cannot unpledge more than already pledged.");
 
         totalPledged = totalPledged.sub(_amount);
-        amountsPledged[msg.sender] = amountsPledged.sub(_amount);
+        amountsPledged[msg.sender] = amountsPledged[msg.sender].sub(_amount);
 
         reserveToken.transfer(msg.sender, _amount);
 
@@ -197,7 +202,7 @@ contract Router is ReentrancyGuard {
         require(amount <= amountsBurned[msg.sender], "Cannot remove more from burn pool than already added.");
 
         totalInBurnPool = totalInBurnPool.sub(amount);
-        amountsBurned[msg.sender] = amountsBurned.sub(amount);
+        amountsBurned[msg.sender] = amountsBurned[msg.sender].sub(amount);
 
         tree.transfer(msg.sender, amount);
 
@@ -225,7 +230,7 @@ contract Router is ReentrancyGuard {
 		address[] calldata path,
 		address to,
 		uint deadline
-	) external override returns (uint256[] memory amounts) {
+	) external returns (uint256[] memory amounts) {
 		require(msg.sender == RESERVE, 'UniswapV2Router: not reserve');
 		require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
 		require(totalPledged >= amountIn, "Not enough tokens pledged to reach target price. Rebase postponed.");
@@ -302,7 +307,7 @@ contract Router is ReentrancyGuard {
         } else {
             // send some of the reserveToken to charity
 	        uint256 charityCutAmount = totalPledged.mul(charityCut).div(PRECISION.sub(rewardsCut));
-            reserveToken.safeIncreaseAllowance(address(omniBridge), charityCutAmount);
+            reserveToken.increaseAllowance(address(omniBridge), charityCutAmount);
             omniBridge.relayTokens(address(reserveToken), charity, charityCutAmount);
         }
 
@@ -362,7 +367,7 @@ contract Router is ReentrancyGuard {
 
     function setLPRewards(address _newValue) external onlyGov {
         require(_newValue != address(0), "TREEReserve: address is 0");
-        lpRewards = ITREERewards(_newValue);
+        lpRewards = I_TREERewards(_newValue);
         emit SetLPRewards(_newValue);
     }
 
@@ -391,7 +396,7 @@ contract Router is ReentrancyGuard {
 
     function setOmniBridge(address _newValue) external onlyGov {
         require(_newValue != address(0), "TREEReserve: address is 0");
-        omniBridge = IOmniBridge(_newValue);
+        omniBridge = I_OmniBridge(_newValue);
         emit SetOmniBridge(_newValue);
     }
 
@@ -400,7 +405,7 @@ contract Router is ReentrancyGuard {
             _newValue >= MIN_TARGET_PRICE_MULTIPLIER && _newValue <= MAX_TARGET_PRICE_MULTIPLIER,
             "TREEReserve: value out of range"
         );
-		targetPriceMultiplier _newValue;
+		targetPriceMultiplier = _newValue;
 		emit SetTargetPriceMultiplier(_newValue);
 	}
 
