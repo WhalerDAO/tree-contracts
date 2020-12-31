@@ -15,7 +15,7 @@ interface I_ERC20 {
 }
 
 interface I_TREERewards {
-  function notifyRewardAmount(uint256 reward) external;
+	function notifyRewardAmount(uint256 reward) external;
 }
 
 
@@ -60,20 +60,30 @@ contract Router is ReentrancyGuard {
     uint256 public constant MIN_REWARDS_CUT = 5 * 10**15; // 0.5%
     /// @notice the maximum value of rewardsCut
     uint256 public constant MAX_REWARDS_CUT = 10**17; // 10%
+    /// @notice the minimum value of targetPriceMultiplier
+    // 100 * 10**16 = 100% (Target price doesn't increase)
+    uint256 public constant MIN_TARGET_PRICE_MULTIPLIER = 100 * 10**16;
+    /// @notice the maximum value of targetPriceMultiplier
+    // 110 * 10**16 = 110% (Target price increases by 10% after each rebase)
+    uint256 public constant MAX_TARGET_PRICE_MULTIPLIER = 110 * 10**16;
 
-    address public gov;
-    address public charity;
-    address public omniBridge;
-    uint256 public charityCut;
-    uint256 public rewardsCut;
+	address public gov;
+	address public charity;
+	address public omniBridge;
+	uint256 public charityCut;
+	uint256 public rewardsCut;
+    // 1002 * 10**15 = 100.2% . Sensible default. If targetPriceMultiplier is 100.2% and there are 365 rebases in one
+    // year, there will be an APY of 107%.
+    uint256 public targetPriceMultiplier = 1002 * 10 ** 15;
     uint256 public oldReserveBalance;
-    bool public hasTransferredOldReserveBalance;
+	bool public hasTransferredOldReserveBalance;
 
     I_ERC20 public tree = I_ERC20(TREE);
     I_ERC20 public reserveToken = I_ERC20(DAI);
     I_TREERewards public lpRewards;
 
-    uint256 public treeSupply;
+	uint256 public treeSupply;
+	uint256 public targetPrice;
     uint256 public totalReserveClaimable;
 
     uint256 public totalPledged;
@@ -88,27 +98,31 @@ contract Router is ReentrancyGuard {
     mapping (address => uint256) public amountsBurned;
     mapping (address => uint256) public reserveClaimable;
 
-    constructor(
-        address _gov,
-        address _charity,
-        address _lpRewards,
-        address _omniBridge,
-        uint256 _charityCut,
-        uint256 _rewardsCut,
-        uint256 _oldReserveBalance,
-        uint256 _treeSupply
-    ) public {
-        gov = _gov;
-        charity = _charity;
-        lpRewards = _lpRewards;
-        omniBridge = _omniBridge;
-        charityCut = _charityCut;
-        rewardsCut = _rewardsCut;
-        oldReserveBalance = _oldReserveBalance;
-        // Because this contract isn't allowed to call TREE.reserveBurn(), TREE.totalSupply() may be wrong.
-        // We will track treeSupply starting from the amount that is passed in (which may be TREE.totalSupply())
-        treeSupply = _treeSupply;
-    }
+	constructor(
+		address _gov,
+		address _charity,
+		address _lpRewards,
+		address _omniBridge,
+		uint256 _charityCut,
+		uint256 _rewardsCut,
+		uint256 _oldReserveBalance,
+		uint256 _treeSupply,
+		uint256 _targetPrice,
+		uint256 _targetPriceMultiplier
+	) public {
+		gov = _gov;
+		charity = _charity;
+		lpRewards = _lpRewards;
+		omniBridge = _omniBridge;
+		charityCut = _charityCut;
+		rewardsCut = _rewardsCut;
+		oldReserveBalance = _oldReserveBalance;
+		// Because this contract isn't allowed to call TREE.reserveBurn(), TREE.totalSupply() may be wrong.
+		// We will track treeSupply starting from the amount that is passed in (which may be TREE.totalSupply())
+		treeSupply = _treeSupply;
+		targetPrice = _targetPrice;
+		targetPriceMultiplier = _targetPriceMultiplier;
+	}
 
 
     function pledge(uint256 _amount, bool max) external {
@@ -205,21 +219,21 @@ contract Router is ReentrancyGuard {
     }
 
 
-    function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external override returns (uint256[] memory amounts) {
-        require(msg.sender == RESERVE, 'UniswapV2Router: not reserve');
-        require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
-	    // amountIn is calculated using Dai, so the following check only works for Dai
-	    // TODO: check price Oracle and compare with targetPrice to see if we should rebase.
-	    // Another option is to let people pledge Dai and then convert to the reserve token.
-        require(totalPledged >= amountIn, "Not enough tokens pledged. Rebase postponed.");
+	function swapExactTokensForTokens(
+		uint amountIn,
+		uint amountOutMin,
+		address[] calldata path,
+		address to,
+		uint deadline
+	) external override returns (uint256[] memory amounts) {
+		require(msg.sender == RESERVE, 'UniswapV2Router: not reserve');
+		require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
+		require(totalPledged >= amountIn, "Not enough tokens pledged to reach target price. Rebase postponed.");
 
-        uint treeBurned = 0;
+        // The old reserve mints TREE based on a target price of 1 Dai. Distribute fewer TREE based on the
+        // real targetPrice and burn the rest.
+        uint treeToDistribute = amountIn.mul(PRECISION).div(targetPrice);
+        uint treeBurned = amountIn.sub(treeToDistribute);
 
         // Update TREE claimable for each pledger
         for (uint i = 1; i <= numPledgers; i++) {
@@ -230,7 +244,7 @@ contract Router is ReentrancyGuard {
                 // treeToReceive = value pledged * (amountIn / totalPledged)
                 // For example, if 100 DAI is pledged and there's only 50 TREE available
                 // an address that pledged 5 DAI would receive 5 * (50/100) = 2.5 TREE
-                uint256 treeToReceive = amountPledged.mul(amountIn).div(totalPledged);
+                uint256 treeToReceive = amountPledged.mul(treeToDistribute).div(totalPledged);
                 treeClaimable[pledger] = treeClaimable[pledger].add(treeToReceive);
 
                 delete(amountsPledged[pledger]);
@@ -268,9 +282,12 @@ contract Router is ReentrancyGuard {
 
             totalReserveClaimable = totalReserveClaimable.add(reserveToDistribute);
 
-		    // Burn the TREE
-		    tree.transfer(address(0), totalInBurnPool);
-            treeBurned.add(totalInBurnPool);
+		    // Add the totalInBurnPool to the tree to be burned
+		    treeBurned.add(totalInBurnPool);
+        }
+
+        if(treeBurned > 0) {
+            tree.transfer(address(0), treeBurned);
         }
 
         // Increase our internal measure of treeSupply by the amount sent in plus the amount sent to LP rewards
@@ -297,7 +314,10 @@ contract Router is ReentrancyGuard {
         totalInBurnPool = 0;
         numBurners = 0;
 
-    }
+		// Increase targetPrice after a successful rebase
+
+		targetPrice = targetPrice.mul(targetPriceMultiplier).div(PRECISION);
+	}
 
 
     function withdrawToken(address _token, address _to, uint256 _amount, bool max) external onlyGov {
@@ -374,5 +394,14 @@ contract Router is ReentrancyGuard {
         omniBridge = IOmniBridge(_newValue);
         emit SetOmniBridge(_newValue);
     }
+
+	function setTargetPriceMultiplier(uint256 _newValue) external onlyGov {
+        require(
+            _newValue >= MIN_TARGET_PRICE_MULTIPLIER && _newValue <= MAX_TARGET_PRICE_MULTIPLIER,
+            "TREEReserve: value out of range"
+        );
+		targetPriceMultiplier _newValue;
+		emit SetTargetPriceMultiplier(_newValue);
+	}
 
 }
