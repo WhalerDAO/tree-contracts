@@ -2,6 +2,8 @@ pragma solidity ^0.6.6;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@uniswap/lib/contracts/libraries/Babylonian.sol";
+import "./interfaces/IOmniBridge.sol";
 
 
 interface I_ERC20 {
@@ -9,6 +11,7 @@ interface I_ERC20 {
     function transfer(address recipient, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function increaseAllowance(address spender, uint256 addedAmount) public virtual returns (bool);
+    function totalSupply() external returns(uint256);
 }
 
 interface I_TREERewards {
@@ -16,20 +19,30 @@ interface I_TREERewards {
 }
 
 
-contract Router {
+contract Router is ReentrancyGuard {
     using SafeMath for uint256;
 
-    event Pledge(address addr, uint256 amount);
-    event Unpledge(address addr, uint256 amount);
-    event Claim(address addr, uint256 amount);
-    event Rebase(treeSold, reserveTokenReceived);
+    modifier onlyGov {
+        require(msg.sender == gov, "Router: not gov");
+        _;
+    }
+
+    event Pledge(address indexed sender, uint256 amount);
+    event Unpledge(address indexed sender, uint256 amount);
+    event ClaimTree(address indexed sender, uint256 amount);
+    event Rebase(totalPledged, numPledgers, totalBurned, numBurners);
     event WithdrawToken(address token, address to, uint256 amount);
     event SetReserveToken(address token);
     event SetCharityCut(uint256 _newValue);
     event SetRewardsCut(uint256 _newValue);
+    event SetOmniBridge(address _newValue);
     event SetGov(address _newValue);
     event SetCharity(address _newValue);
     event SetLPRewards(address _newValue);
+    event SetTargetPriceMultiplier(uint256 _newValue);
+    event AddToBurnPool(address indexed sender, uint256 amount);
+    event RemoveFromBurnPool(address indexed sender, uint256 amount);
+    event ClaimReserve(address indexed sender, uint256 amount);
 
     address constant private TREE = 0xCE222993A7E4818E0D12BC56376c5a60f92A5783;
     address constant private RESERVE = 0x390a8Fb3fCFF0bB0fCf1F91c7E36db9c53165d17;
@@ -48,42 +61,64 @@ contract Router {
     /// @notice the maximum value of rewardsCut
     uint256 public constant MAX_REWARDS_CUT = 10**17; // 10%
 
-    address private gov;
-    address private charity;
-    uint256 private charityCut;
-    uint256 private rewardsCut;
-    uint256 private oldReserveBalance;
-    bool private hasTransferredOldReserveBalance;
+    address public gov;
+    address public charity;
+    address public omniBridge;
+    uint256 public charityCut;
+    uint256 public rewardsCut;
+    uint256 public oldReserveBalance;
+    bool public hasTransferredOldReserveBalance;
 
     I_ERC20 public tree = I_ERC20(TREE);
     I_ERC20 public reserveToken = I_ERC20(DAI);
     I_TREERewards public lpRewards;
 
-    uint256 private totalPledged;
-    uint256 private numPledgers;
-    uint256 private treeSold;
-    mapping (uint256 => address) private pledgers;
-    mapping (address => uint256) private amountsPledged;
-    mapping (address => uint256) private amountsClaimable;
+    uint256 public treeSupply;
+    uint256 public totalReserveClaimable;
 
-    constructor(address _gov, address _charity, address _lpRewards, uint256 _charityCut, uint256 _rewardsCut, uint256 _oldReserveBalance) public {
+    uint256 public totalPledged;
+    uint256 public numPledgers;
+    mapping (uint256 => address) public pledgers;
+    mapping (address => uint256) public amountsPledged;
+    mapping (address => uint256) public treeClaimable;
+
+    uint256 public totalInBurnPool;
+    uint256 public numBurners;
+    mapping (uint256 => address) public burners;
+    mapping (address => uint256) public amountsBurned;
+    mapping (address => uint256) public reserveClaimable;
+
+    constructor(
+        address _gov,
+        address _charity,
+        address _lpRewards,
+        address _omniBridge,
+        uint256 _charityCut,
+        uint256 _rewardsCut,
+        uint256 _oldReserveBalance,
+        uint256 _treeSupply
+    ) public {
         gov = _gov;
         charity = _charity;
         lpRewards = _lpRewards;
+        omniBridge = _omniBridge;
         charityCut = _charityCut;
         rewardsCut = _rewardsCut;
         oldReserveBalance = _oldReserveBalance;
+        // Because this contract isn't allowed to call TREE.reserveBurn(), TREE.totalSupply() may be wrong.
+        // We will track treeSupply starting from the amount that is passed in (which may be TREE.totalSupply())
+        treeSupply = _treeSupply;
     }
 
 
-    function pledge(uint256 _amount, bool max) external payable {
+    function pledge(uint256 _amount, bool max) external {
         require(!Address.isContract(msg.sender), "Must pledge from EOA");
         if (max) {_amount = reserveToken.balanceOf(msg.sender);}
         require(_amount > 0, "Must pledge more than 0.");
         require(reserveToken.balanceOf(msg.sender) >= _amount, "Cannot pledge more reserveToken than held.");
         reserveToken.transferFrom(msg.sender, address(this), _amount);
 
-        totalPledged = totalPledged + _amount;
+        totalPledged = totalPledged.add(_amount);
 
         if (amountsPledged[msg.sender] == 0) {
             // User has not pledged before. Add them to pledgers[] so we can loop over them.
@@ -95,7 +130,7 @@ contract Router {
     }
 
 
-    function unpledge(uint256 _amount, bool max) external payable {
+    function unpledge(uint256 _amount, bool max) external nonReentrant {
         require(hasPledged(msg.sender), "User has not pledged.");
         if (max) {_amount = amountsPledged[msg.sender];}
         require(_amount <= amountsPledged[msg.sender], "Cannot unpledge more than already pledged.");
@@ -109,13 +144,64 @@ contract Router {
     }
 
 
-    function claim() external nonReentrant {
-        uint256 claimable = amountsClaimable[msg.sender];
-        
-        tree.transfer(msg.sender, claimable);
-        emit Claim(msg.sender, claimable);
+    function claimTREE() external nonReentrant {
+        uint256 claimable = treeClaimable[msg.sender];
+        require(claimable > 0, "No TREE claimable from this address.");
 
-        delete(amountsClaimable[msg.sender]);
+        tree.transfer(msg.sender, claimable);
+        emit ClaimTree(msg.sender, claimable);
+
+        delete(treeClaimable[msg.sender]);
+    }
+
+
+    function addTreeToBurnPool(uint256 amount, bool max) external {
+        if (max) {
+            amount = tree.balanceOf(msg.sender);
+        }
+        require(amount > 0, "Must burn more than 0.");
+        require(tree.balanceOf(msg.sender) >= amount, "Cannot burn more TREE than held.");
+
+        tree.transferFrom(msg.sender, address(this), amount);
+
+        totalInBurnPool = totalInBurnPool.add(amount);
+
+        if (amountsBurned[msg.sender] == 0) {
+            // User has not burned before. Add them to burners[] so we can loop over them.
+            burners[++numBurners] = msg.sender;
+        }
+        amountsBurned[msg.sender] = amountsBurned[msg.sender].add(amount);
+
+        emit AddToBurnPool(msg.sender, amount);
+    }
+
+
+    function removeTreeFromBurnPool(uint256 amount, bool max) external nonReentrant {
+        if (max) {
+            amount = amountsBurned[msg.sender];
+        }
+        require(amount <= amountsBurned[msg.sender], "Cannot remove more from burn pool than already added.");
+
+        totalInBurnPool = totalInBurnPool.sub(amount);
+        amountsBurned[msg.sender] = amountsBurned.sub(amount);
+
+        tree.transfer(msg.sender, amount);
+
+        emit RemoveFromBurnPool(msg.sender, amount);
+    }
+
+
+    function claimReserve() external nonReentrant {
+        uint256 claimable = reserveClaimable[msg.sender];
+        require(claimable > 0, "No reserve claimable from this address.");
+
+        reserveToken.transfer(msg.sender, claimable);
+
+        totalReserveClaimable = totalReserveClaimable.sub(claimable);
+
+        delete(reserveClaimable[msg.sender]);
+
+        emit ClaimReserve(msg.sender, claimable);
     }
 
 
@@ -128,14 +214,15 @@ contract Router {
     ) external override returns (uint256[] memory amounts) {
         require(msg.sender == RESERVE, 'UniswapV2Router: not reserve');
         require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
-        require(totalPledged >= amountIn, "Not enough DAI pledged. Rebase postponed.");
+	    // amountIn is calculated using Dai, so the following check only works for Dai
+	    // TODO: check price Oracle and compare with targetPrice to see if we should rebase.
+	    // Another option is to let people pledge Dai and then convert to the reserve token.
+        require(totalPledged >= amountIn, "Not enough tokens pledged. Rebase postponed.");
 
-        // transfer pledged reserveToken to reserve
-        reserveToken.increaseAllowance(address(this), totalPledged);
-        reserveToken.transfer(RESERVE, totalPledged);
+        uint treeBurned = 0;
 
         // Update TREE claimable for each pledger
-        for (uint i=1; i<=numPledgers; i++) {
+        for (uint i = 1; i <= numPledgers; i++) {
             address pledger = pledgers[i];
             uint256 amountPledged = amountsPledged[pledger];
 
@@ -144,38 +231,76 @@ contract Router {
                 // For example, if 100 DAI is pledged and there's only 50 TREE available
                 // an address that pledged 5 DAI would receive 5 * (50/100) = 2.5 TREE
                 uint256 treeToReceive = amountPledged.mul(amountIn).div(totalPledged);
-                treeSold = treeSold.add(treeToReceive);
-                amountsClaimable[pledger] = amountsClaimable[pledger].add(treeToReceive);
+                treeClaimable[pledger] = treeClaimable[pledger].add(treeToReceive);
 
                 delete(amountsPledged[pledger]);
             }
             delete(pledgers[i]);
         }
 
+	    tree.transferFrom(msg.sender, address(this), amountIn);
+
+	    if (totalInBurnPool > 0 && hasTransferredOldReserveBalance) {
+            // To find how much of the reserve is available to distribute, start with the reserve balance in this
+            // contract, subtract the total that was just pledged, subtract the reserve that is waiting to be claimed
+            // from previous burns. Multiply this by the square root of the percentage of TREE in the burn pool.
+            // For example, if 49% of the TREE supply is being burned, 70% (sqrt .49 = .70) of the available reserve
+            // will be distributed proportionally to contributors to the burn pool.
+            uint reserveToDistribute =
+                (reserveToken.balanceOf(address(this)).sub(totalPledged).sub(totalReserveClaimable))
+                .mul(Babylonian.sqrt(totalInBurnPool)).div(Babylonian.sqrt(treeSupply));
+
+            // Update reserve token claimable for each burner
+            for (uint i = 1; i <= numBurners; i++) {
+                address burner = burners[i];
+                uint256 amountBurned = amountsBurned[burner];
+
+                if (amountBurned > 0) {
+                    // reserveToReceive = reserveToDistribute * (amountBurned / totalInBurnPool)
+                    // Everyone gets available reserve tokens back proportional to their share of the burn pool.
+                    uint256 reserveToReceive = amountBurned.mul(reserveToDistribute).div(totalInBurnPool);
+                    reserveClaimable[burner] = reserveClaimable[burner].add(reserveToReceive);
+
+                    delete (amountsBurned[burner]);
+                }
+                delete (burners[i]);
+            }
+
+            totalReserveClaimable = totalReserveClaimable.add(reserveToDistribute);
+
+		    // Burn the TREE
+		    tree.transfer(address(0), totalInBurnPool);
+            treeBurned.add(totalInBurnPool);
+        }
+
+        // Increase our internal measure of treeSupply by the amount sent in plus the amount sent to LP rewards
+        // minus the amount burned
+        treeSupply = treeSupply.add(amountIn.div(PRECISION.sub(rewardsCut))).sub(treeBurned);
+
         if (!hasTransferredOldReserveBalance) {
             // move oldReserveBalance to charity by reversing the code that computes the charityCutAmount
-            // https://github.com/WhalerDAO/tree-contracts/blob/master/contracts/TREEReserve.sol#L173-L175
             amounts[0] = 0;
             amounts[1] = oldReserveBalance.div(charityCut).mul(PRECISION.sub(rewardsCut));
             hasTransferredOldReserveBalance = true;
-        }
-        else {
-            // Return amounts based on https://github.com/WhalerDAO/tree-contracts/blob/4525d20def8fce41985f0711e9b742a0f3c0d30b/contracts/TREEReserve.sol#L217
-            amounts[0] = treeSold;
-            amounts[1] = totalPledged;
+        } else {
+            // send some of the reserveToken to charity
+	        uint256 charityCutAmount = totalPledged.mul(charityCut).div(PRECISION.sub(rewardsCut));
+            reserveToken.safeIncreaseAllowance(address(omniBridge), charityCutAmount);
+            omniBridge.relayTokens(address(reserveToken), charity, charityCutAmount);
         }
 
-        emit Rebase(treeSold, totalPledged);
+        emit Rebase(totalPledged, numPledgers, totalInBurnPool, numBurners);
 
-        // Reset tracking variables
-        treeSold = 0;
+        // Reset pledging and burning pools
         totalPledged = 0;
         numPledgers = 0;
+        totalInBurnPool = 0;
+        numBurners = 0;
+
     }
 
 
-    function withdrawToken(address _token, address _to, uint256 _amount, bool max) external payable {
-        require(msg.sender == gov, "UniswapRouter: not gov");
+    function withdrawToken(address _token, address _to, uint256 _amount, bool max) external onlyGov {
         if (max) {_amount = I_ERC20(_token).balanceOf(address(this));}
         I_ERC20(_token).transfer(_to, _amount);
         emit WithdrawToken(_token, _to, _amount);
@@ -194,8 +319,8 @@ contract Router {
         return amountsPledged[_addr];
     }
 
-    function getClaimAmount(address _addr) external view returns (uint256) {
-        return amountsClaimable[_addr];
+    function getTreeClaimableAmount(address _addr) external view returns (uint256) {
+        return treeClaimable[_addr];
     }
 
     function getGov() external view returns (address) {return gov;}
@@ -221,8 +346,7 @@ contract Router {
         emit SetLPRewards(_newValue);
     }
 
-    function setReserveToken(address _newToken) external {
-        require(msg.sender == gov, "UniswapRouter: not gov");
+    function setReserveToken(address _newToken) external onlyGov {
         reserveToken = I_ERC20(_newToken);
         emit SetReserveToken(_newToken);
     }
@@ -244,4 +368,11 @@ contract Router {
         rewardsCut = _newValue;
         emit SetRewardsCut(_newValue);
     }
+
+    function setOmniBridge(address _newValue) external onlyGov {
+        require(_newValue != address(0), "TREEReserve: address is 0");
+        omniBridge = IOmniBridge(_newValue);
+        emit SetOmniBridge(_newValue);
+    }
+
 }
