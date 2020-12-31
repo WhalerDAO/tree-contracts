@@ -3,14 +3,13 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@uniswap/lib/contracts/libraries/Babylonian.sol";
-import "./interfaces/IOmniBridge.sol";
 
 
 interface I_ERC20 {
     function balanceOf(address account) external view returns (uint256);
     function transfer(address recipient, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    function increaseAllowance(address spender, uint256 addedAmount) external virtual returns (bool);
+    function increaseAllowance(address spender, uint256 addedAmount) external returns (bool);
     function totalSupply() external returns(uint256);
 }
 

@@ -2,11 +2,12 @@
   "gov": "0x87b75B776c4c90ED3b2b53Ee26f8e444ba106CB1",
   "charity": "0x87b75B776c4c90ED3b2b53Ee26f8e444ba106CB1",
   "lpRewards": "0x87b75B776c4c90ED3b2b53Ee26f8e444ba106CB1",
+  "omniBridge": "0x87b75B776c4c90ED3b2b53Ee26f8e444ba106CB1",
   "charityCut": 1e17,
   "rewardsCut": 5e15,
   "oldReserveBalance": 17621554639972284767269,
   "treeSupply": 81167111848247861441232,
   "targetPrice": 1,
-  "targetPriceMultiplier": 1002e15,
+  "targetPriceMultiplier": 1.002e18,
   "infura": "https://ropsten.infura.io/v3"
 }
