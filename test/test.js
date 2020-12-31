@@ -4,7 +4,7 @@ const BigNumber = require('bignumber.js')
 
 const { get } = deployments
 
-const config = require('../deploy-configs/get-config')
+const config = require('../deploy-configs/v1/get-config')
 const HOUR = 60 * 60
 const DAY = 24 * HOUR
 const PRECISION = BigNumber(1e18).toFixed()

@@ -1,7 +1,7 @@
 module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) => {
   const { get, log } = deployments
   const { deployer } = await getNamedAccounts()
-  const config = require('../deploy-configs/get-config')
+  const config = require('../v1/deploy-configs/get-config')
 
   const timelockDeployment = await get('Timelock')
   const timelockContract = await ethers.getContractAt('Timelock', timelockDeployment.address)

@@ -3,8 +3,8 @@ const BigNumber = require('bignumber.js')
 module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) => {
   const { get, log, save } = deployments
   const { deployer } = await getNamedAccounts()
-  const config = require('../deploy-configs/get-config')
-  const forests = require('../deploy-configs/forests.json')
+  const config = require('../v1/deploy-configs/get-config')
+  const forests = require('../v1/deploy-configs/forests.json')
 
   const treeDeployment = await get('TREE')
   const treeContract = await ethers.getContractAt('TREE', treeDeployment.address)
@@ -41,7 +41,7 @@ module.exports.tags = ['Forests', 'stage1']
 module.exports.dependencies = ['TREE', 'TREERewardsFactory']
 module.exports.skip = async ({ ethers, getNamedAccounts, deployments, getChainId }) => {
   const { getOrNull } = deployments
-  const forests = require('../deploy-configs/forests.json')
+  const forests = require('../v1/deploy-configs/forests.json')
   for (const { symbol } of forests) {
     const forestName = `${symbol}Forest`
     const forestDeployment = await getOrNull(forestName)

@@ -1,7 +1,7 @@
 const { getNamedAccounts, deployments, ethers } = require('@nomiclabs/buidler')
 const BigNumber = require('bignumber.js')
 
-const config = require('../deploy-configs/get-config')
+const config = require('../deploy-configs/v1/get-config')
 const UNI_ROUTER_ADDR = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
 const HOUR = 60 * 60
 

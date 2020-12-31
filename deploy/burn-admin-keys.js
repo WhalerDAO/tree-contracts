@@ -30,7 +30,7 @@ module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) =
     log(`Burned LPRewards admin key at tx ${burnAdminKeyTx.hash}`)
   }
 
-  const forests = require('../deploy-configs/forests.json')
+  const forests = require('../v1/deploy-configs/forests.json')
   for (const { symbol } of forests) {
     const forestName = `${symbol}Forest`
     const forestDeployment = await get(forestName)
