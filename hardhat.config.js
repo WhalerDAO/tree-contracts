@@ -8,6 +8,9 @@ module.exports = {
   solidity: "0.6.6",
   networks: {
     hardhat: {
+      forking: {
+        url: `https://mainnet.infura.io/v3/${process.env.INFURA_KEY}`
+      },
       gas: 12000000,
       blockGasLimit: 0x1fffffffffffff,
       allowUnlimitedContractSize: true,

@@ -1,0 +1,13 @@
+{
+  "gov": "0xade20a93179003300529afef3853f9679234d929",
+  "charity": "0x703e0beff5d4f917b4b97ec8dc6d9ddbc90fb175",
+  "lpRewards": "0xe7b7d02296a016e25a40f18dfd55626a64308fe3",
+  "omniBridge": "0xc47192E48F75B612c792833C8b54Ad6BE319af90",
+  "charityCut": 1e17,
+  "rewardsCut": 5e15,
+  "oldReserveBalance": 17621554639972284767269,
+  "treeSupply": 81167111848247861441232,
+  "targetPrice": 1,
+  "targetPriceMultiplier": 1.002e18,
+  "infura": "https://mainnet.infura.io/v3"
+}
