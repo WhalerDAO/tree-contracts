@@ -16,20 +16,13 @@ const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F';
 
 const Router = artifacts.require('Router');
 
+var loadContract = function(contractName) {
+    let abi = JSON.parse(`../contracts/abi/${contractName}.json`);
+    let address = config.contractName.address;
 
-const setNextBlockTime = async time => provider.send('evm_setNextBlockTimestamp', [time]);
-const mineNextBlock = async () => provider.send('evm_mine');
-
-const impersonateAccount = async address => provider.send('hardhat_impersonateAccount', [address]);
-const stopImpersonatingAccount = async address => provider.send('hardhat_stopImpersonatingAccount', [address]);
-
-const takeSnapshot = async () => provider.send('evm_snapshot');
-const revertToSnapshot = async id => provider.send('evm_revert', [id]);
-const reset = async () => provider.send('hardhat_reset');
-
-function loadContract( (k, v) => {
-    
-});
+    let contractObj = new Contract(abi, address);
+    return contractObj;
+}
 
 describe("TREE v2", function () {
     let accounts;
@@ -47,7 +40,14 @@ describe("TREE v2", function () {
         deployer = accounts[0];
 
         // Connect to existing contracts
-        
+        reserve = loadContract(config, 'Reserve');
+        rebaser = loadContract(config, "Rebaser");
+        gov = loadContract(config, "Gov");
+        tree = loadcontract(config, "Tree");
+        charity = loadContract(config, "Charity");
+        dai = loadContract(config, "")
+        DAI
+
         reserve = new Contract(JSON.parse("../contracts/abi/Reserve.json"), RESERVE);
         // tree = new Contract(JSON.parse('../contracts/abi/Tree.json'), REBASER)
         // tree = new Contract(JSON.parse('../contracts/abi/Tree.json'), TREE)
@@ -82,3 +82,16 @@ describe("TREE v2", function () {
     });
 
 });
+
+
+/*
+const setNextBlockTime = async time => provider.send('evm_setNextBlockTimestamp', [time]);
+const mineNextBlock = async () => provider.send('evm_mine');
+
+const impersonateAccount = async address => provider.send('hardhat_impersonateAccount', [address]);
+const stopImpersonatingAccount = async address => provider.send('hardhat_stopImpersonatingAccount', [address]);
+
+const takeSnapshot = async () => provider.send('evm_snapshot');
+const revertToSnapshot = async id => provider.send('evm_revert', [id]);
+const reset = async () => provider.send('hardhat_reset');
+/*
