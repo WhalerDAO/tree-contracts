@@ -13,5 +13,6 @@
   "treeSupply": 81167111848247861441232,
   "targetPrice": 1,
   "targetPriceMultiplier": 1.002e18,
-  "infura": "https://mainnet.infura.io/v3"
+  "infura": "https://mainnet.infura.io/v3",
+  "blockNumber": 11401200
 }

@@ -42,10 +42,10 @@ describe("TREE v2", function () {
 
         // Deploy router
         router = await Router.new(
-            config.gov,
-            config.charity,
-            config.lpRewards,
-            config.omniBridge,
+            gov.address,
+            charity.address,
+            lpRewards.address,
+            omniBridge.address,
             BigNumber(config.charityCut).toFixed(),
             BigNumber(config.rewardsCut).toFixed(),
             BigNumber(config.oldReserveBalance).toFixed(),
