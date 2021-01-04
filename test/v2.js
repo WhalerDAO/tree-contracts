@@ -4,33 +4,36 @@ const HDWalletProvider = require("@truffle/hdwallet-provider");
 const Web3 = require("web3");
 var Contract = require("web3-eth-contract");
 const {expect} = require('chai');
+const fs = require('fs')
 
 require('dotenv').config();
 const config = require("../deploy-configs/v2/get-config");
 
 // Load contracts
-var reserve = loadContract(config, 'reserve');
-var rebaser = loadContract(config, "rebaser");
-var gov = loadContract(config, "gov");
-var tree = loadcontract(config, "tree");
-var charity = loadContract(config, "charity");
-var dai = loadContract(config, "dai");
-
 const Router = artifacts.require('Router');
 
 
 var loadContract = function(contractName) {
-    let abi = JSON.parse(`../contracts/abi/${contractName}.json`);
-    let address = config.contractName.address;
-
-    let contractObj = new Contract(abi, address);
-    return contractObj;
+    let rawdata = fs.readFileSync(`./contracts/abi/${contractName}.json`);
+    let json = JSON.parse(rawdata);
+    let address = config.addresses[contractName];
+    return new Contract(json, address);
 }
 
 describe("TREE v2", function () {
     let accounts;
     let deployer;
-    let router;
+
+    // Pre-deployed contracts
+    var reserve = loadContract('reserve');
+    var rebaser = loadContract("rebaser");
+    var gov = loadContract("gov");
+    // var charity = loadContract("charity");
+    var lpRewards = loadContract('lpRewards');
+    var omniBridge = loadContract('omniBridge');
+    
+    var tree = loadContract("tree");
+    var dai = loadContract("dai");
 
     before(async function () {
         let pk = process.env.PRIVATE_KEY;
@@ -43,7 +46,7 @@ describe("TREE v2", function () {
         // Deploy router
         router = await Router.new(
             gov.address,
-            charity.address,
+            deployer.address, // CHARITY
             lpRewards.address,
             omniBridge.address,
             BigNumber(config.charityCut).toFixed(),
@@ -53,7 +56,6 @@ describe("TREE v2", function () {
             config.targetPrice,
             BigNumber(config.targetPriceMultiplier).toFixed()
         );
-        
     });
 
     contract("Router", async function() {
@@ -61,7 +63,9 @@ describe("TREE v2", function () {
         const gov = provider
         impersonateAccount(GOV);
 
+        // set uniswap router to point at our new Router.sol
         await reserve.setUniswapRouter(deployer);
+
         assert.equal(
             reserve.uniswapRouter(), deployer,
             `Router set to: ${reserve.uniswapRouter()}`
@@ -81,4 +85,4 @@ const stopImpersonatingAccount = async address => provider.send('hardhat_stopImp
 const takeSnapshot = async () => provider.send('evm_snapshot');
 const revertToSnapshot = async id => provider.send('evm_revert', [id]);
 const reset = async () => provider.send('hardhat_reset');
-/*
+*/
