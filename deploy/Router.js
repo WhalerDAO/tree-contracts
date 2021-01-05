@@ -9,7 +9,7 @@ require("dotenv").config();
 const main = async function () {
     
     const config = require("../deploy-configs/v2/get-config");
-    const provider = new HDWalletProvider(process.env.PRIVATE_KEY, `${config.infura}/${process.env.INFURA_KEY}`);
+    const provider = new HDWalletProvider(process.env.PRIVATE_KEY, `${config.http}/${process.env.HTTP_KEY}`);
     const w = new Web3(provider);
     const accounts = await w.eth.getAccounts();
 
