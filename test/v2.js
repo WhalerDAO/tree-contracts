@@ -1,49 +1,54 @@
-const { network: { provider } } = require('hardhat');
+const { network: { provider }, waffle , web3} = require('hardhat');
 const BigNumber = require('bignumber.js');
-const HDWalletProvider = require("@truffle/hdwallet-provider");
-const Web3 = require("web3");
 var Contract = require("web3-eth-contract");
 const {expect, assert} = require('chai');
+const { expectEvent } = require('@openzeppelin/test-helpers');
 const fs = require('fs')
 
 require("@nomiclabs/hardhat-truffle5");
+// const {web3} = require("@nomiclabs/hardhat-web3");
+require("@nomiclabs/hardhat-waffle");
+
 require('dotenv').config();
 const config = require("../deploy-configs/v2/get-config");
+const { equal } = require('assert');
 
 // Load contracts
 const Router = artifacts.require('Router');
 
 
-var loadContract = function(contractName) {
-    let rawdata = fs.readFileSync(`./contracts/abi/${contractName}.json`);
-    let json = JSON.parse(rawdata);
-    let address = config.addresses[contractName];
-    return new Contract(json, address);
-}
-
-describe("TREE v2", function () {
+describe("TREE v2", () => {
     let accounts;
     let deployer;
+    let gov;
+    let reserve;
     let router;
 
-    // Pre-deployed contracts
-    var reserve = loadContract('reserve');
-    var rebaser = loadContract("rebaser");
-    var gov = loadContract("gov");
-    // var charity = loadContract("charity");
-    var lpRewards = loadContract('lpRewards');
-    var omniBridge = loadContract('omniBridge');
-    
-    var tree = loadContract("tree");
-    var dai = loadContract("dai");
+    var loadContract = function(contractName) {
+        let rawdata = fs.readFileSync(`./contracts/abi/${contractName}.json`);
+        let json = JSON.parse(rawdata);
+        let address = config.addresses[contractName];
+        let contract = new web3.eth.Contract(json, address);
+        return contract
+    }
 
-    before(async function () {
-        let pk = process.env.PRIVATE_KEY;
-        let url = `${config.infura}/${process.env.INFURA_KEY}`;
-        const provider = new HDWalletProvider(pk, url);
-        const w = new Web3(provider);
-        accounts = await w.eth.getAccounts();
+    // let pk = process.env.PRIVATE_KEY;
+    // let url = `${config.infura}/${process.env.INFURA_KEY}`;
+ 
+    before(async () => {
+        accounts = await web3.eth.getAccounts();
         deployer = accounts[0];
+
+        // Pre-deployed contracts
+        reserve = loadContract('reserve');
+        gov = loadContract("gov");
+        var rebaser = loadContract("rebaser");
+        // var charity = loadContract("charity");
+        var lpRewards = loadContract('lpRewards');
+        var omniBridge = loadContract('omniBridge');
+
+        var tree = loadContract("tree");
+        var dai = loadContract("dai");
 
         // Deploy router
         router = await Router.new(
@@ -66,18 +71,26 @@ describe("TREE v2", function () {
             await provider.send('hardhat_impersonateAccount', [gov.options.address]);
 
             // set uniswap router to point at our new Router.sol
-            let newRouterAddr = deployer;   
-            await expect(reserve.methods.setUniswapRouter(newRouterAddr))
-                .to.emit(newRouterAddr, "SetUniswapRouter");
+            let newRouterAddr = deployer;
+            const tx = await reserve.methods.setUniswapRouter(newRouterAddr).send({from: gov.options.address});
+            let receipt = await tx.wait();
+            const event = receipt.events.find((e) => e.event === "setUniswapRouter");
+            expect(event).to.not.be.undefined;
+            // await expectEvent(receipt, 'SetUniswapRouter', {
+            //     _newValue: newRouterAddr
+            // });
+            // await expect(reserve.methods.setUniswapRouter(newsssRouterAddr))
+            //     .to.emit(newRouterAddr, "SetUniswapRouter");
             
-            // let uniswapRouter = await reserve.uniswapRouter.call();
+            // let uniswapRouter = reserve.uniswapRouter;
+            // expect(uniswapRouter), newRouterAddr, `${newRouterAddr}`);
             // make sure SetUniswapRouter(newRouterAddr) was emitted
-            // console.log(uniswapRouter);
+            // console.log(uniswapRouter.address);
             // assert.equal(
             //     await uniswapRouter, newRouterAddr,
             //     `Router set to: ${uniswapRouter}`
             // );
-            assert.equal(1,1);
+            // assert.equal(1,1);
         });
     });
 });

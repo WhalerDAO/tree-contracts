@@ -3,9 +3,13 @@
  */
 require("@nomiclabs/hardhat-truffle5");
 require("@nomiclabs/hardhat-waffle");
+require("@nomiclabs/hardhat-web3");
+
 
 require("dotenv").config();
 const config = require("./deploy-configs/v2/get-config");
+const { task } = require('hardhat/config');
+
 
 module.exports = {
   solidity: "0.6.6",
