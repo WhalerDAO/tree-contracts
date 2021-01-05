@@ -2,6 +2,8 @@
  * @type import('hardhat/config').HardhatUserConfig
  */
 require("@nomiclabs/hardhat-truffle5");
+require("@nomiclabs/hardhat-waffle");
+
 require("dotenv").config();
 const config = require("./deploy-configs/v2/get-config");
 
