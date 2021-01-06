@@ -1,6 +1,5 @@
-const { network: { provider }, waffle , web3} = require('hardhat');
+const { network: { provider }, waffle, ethers } = require('hardhat');
 const BigNumber = require('bignumber.js');
-var Contract = require("web3-eth-contract");
 const {expect, assert} = require('chai');
 const { expectEvent } = require('@openzeppelin/test-helpers');
 const fs = require('fs')
@@ -24,31 +23,21 @@ describe("TREE v2", () => {
     let reserve;
     let router;
 
-    var loadContract = function(contractName) {
+    var loadContract = function(contractName, deployer) {
         let rawdata = fs.readFileSync(`./contracts/abi/${contractName}.json`);
         let json = JSON.parse(rawdata);
         let address = config.addresses[contractName];
-        let contract = new web3.eth.Contract(json, address);
+        let contract = new ethers.Contract(address, json, deployer);
         return contract
     }
 
-    // let pk = process.env.PRIVATE_KEY;
-    // let url = `${config.infura}/${process.env.INFURA_KEY}`;
- 
     before(async () => {
-        accounts = await web3.eth.getAccounts();
+        accounts = await ethers.getSigners();
         deployer = accounts[0];
 
         // Pre-deployed contracts
-        reserve = loadContract('reserve');
-        gov = loadContract("gov");
-        var rebaser = loadContract("rebaser");
-        // var charity = loadContract("charity");
-        var lpRewards = loadContract('lpRewards');
-        var omniBridge = loadContract('omniBridge');
-
-        var tree = loadContract("tree");
-        var dai = loadContract("dai");
+        reserve = loadContract('reserve', deployer);
+        gov = loadContract("gov", deployer);
 
         // Deploy router
         router = await Router.new(
@@ -68,18 +57,25 @@ describe("TREE v2", () => {
 
     contract("Router", async function() {
         it("Should switch uniswap router used on reserve", async function () {
-            await provider.send('hardhat_impersonateAccount', [gov.options.address]);
+            
+            // send funds to gov address
+            deployer.sendTransaction({to:gov.address, value:ethers.utils.parseEther('10')});
+
+            await provider.request({method:'hardhat_impersonateAccount', params:[gov.address]});
 
             // set uniswap router to point at our new Router.sol
-            let newRouterAddr = deployer;
-            const tx = await reserve.methods.setUniswapRouter(newRouterAddr).send({from: gov.options.address});
+            const tx = await reserve.setUniswapRouter(router.address);
             let receipt = await tx.wait();
-            const event = receipt.events.find((e) => e.event === "setUniswapRouter");
+            
+            const event = tx.events.find((e) => e.event === "setUniswapRouter");
             expect(event).to.not.be.undefined;
+
             // await expectEvent(receipt, 'SetUniswapRouter', {
             //     _newValue: newRouterAddr
             // });
-            // await expect(reserve.methods.setUniswapRouter(newsssRouterAddr))
+            // await expect(
+            //     reserve.methods.setUniswapRouter(newRouterAddr).send({from:gov.address})
+            //     )
             //     .to.emit(newRouterAddr, "SetUniswapRouter");
             
             // let uniswapRouter = reserve.uniswapRouter;
@@ -97,6 +93,14 @@ describe("TREE v2", () => {
 
 
 /*
+var rebaser = loadContract("rebaser", deployer);
+// var charity = loadContract("charity", deployer);
+var lpRewards = loadContract('lpRewards', deployer);
+var omniBridge = loadContract('omniBridge', deployer);
+
+var tree = loadContract("tree", deployer);
+var dai = loadContract("dai", deployer);
+
 const setNextBlockTime = async time => provider.send('evm_setNextBlockTimestamp', [time]);
 const mineNextBlock = async () => provider.send('evm_mine');
 
