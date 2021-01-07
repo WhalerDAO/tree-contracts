@@ -1,11 +1,11 @@
-const { network: { provider }, waffle, ethers } = require('hardhat');
+const { network: {provider} } = require('hardhat');
 const BigNumber = require('bignumber.js');
 const {expect, assert} = require('chai');
-const { expectEvent } = require('@openzeppelin/test-helpers');
+const { expectEvent, expectRevert } = require('@openzeppelin/test-helpers');
 const fs = require('fs')
 
+require('@nomiclabs/hardhat-ethers');
 require("@nomiclabs/hardhat-truffle5");
-// const {web3} = require("@nomiclabs/hardhat-web3");
 require("@nomiclabs/hardhat-waffle");
 
 require('dotenv').config();
@@ -17,7 +17,6 @@ const Router = artifacts.require('Router');
 
 
 describe("TREE v2", () => {
-    let accounts;
     let deployer;
     let gov;
     let reserve;
@@ -32,12 +31,13 @@ describe("TREE v2", () => {
     }
 
     before(async () => {
-        accounts = await ethers.getSigners();
-        deployer = accounts[0];
+        // deployer = new ethers.Wallet.createRandom().connect();
+        let accounts = await ethers.getSigners();
+        deployer = accounts[0]; 
 
         // Pre-deployed contracts
-        reserve = loadContract('reserve', deployer);
-        gov = loadContract("gov", deployer);
+        const signer = await ethers.provider.getSigner(config.addresses.gov);
+        reserve = loadContract('reserve', signer);
 
         // Deploy router
         router = await Router.new(
@@ -59,34 +59,31 @@ describe("TREE v2", () => {
         it("Should switch uniswap router used on reserve", async function () {
             
             // send funds to gov address
-            deployer.sendTransaction({to:gov.address, value:ethers.utils.parseEther('10')});
+            deployer.sendTransaction({to:config.addresses.gov, value:ethers.utils.parseEther('10')});
 
-            await provider.request({method:'hardhat_impersonateAccount', params:[gov.address]});
-
+            await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
+            
             // set uniswap router to point at our new Router.sol
             const tx = await reserve.setUniswapRouter(router.address);
-            let receipt = await tx.wait();
+            // let receipt = await tx.wait();
             
-            const event = tx.events.find((e) => e.event === "setUniswapRouter");
-            expect(event).to.not.be.undefined;
+            // const event = tx.events.find((e) => e.event === "setUniswapRouter");
+            // expect(event).to.not.be.undefined;
 
             // await expectEvent(receipt, 'SetUniswapRouter', {
             //     _newValue: newRouterAddr
             // });
-            // await expect(
-            //     reserve.methods.setUniswapRouter(newRouterAddr).send({from:gov.address})
-            //     )
-            //     .to.emit(newRouterAddr, "SetUniswapRouter");
+            // await expect(reserve.setUniswapRouter(router.address)).to.emit(router.address, "SetUniswapRouter");
             
+            // make sure SetUniswapRouter(newRouterAddr) was emitted
             // let uniswapRouter = reserve.uniswapRouter;
             // expect(uniswapRouter), newRouterAddr, `${newRouterAddr}`);
-            // make sure SetUniswapRouter(newRouterAddr) was emitted
-            // console.log(uniswapRouter.address);
             // assert.equal(
             //     await uniswapRouter, newRouterAddr,
             //     `Router set to: ${uniswapRouter}`
             // );
-            // assert.equal(1,1);
+
+
         });
     });
 });

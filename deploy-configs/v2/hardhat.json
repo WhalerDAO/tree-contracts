@@ -15,6 +15,6 @@
   "treeSupply": 81167111848247861441232,
   "targetPrice": 1,
   "targetPriceMultiplier": 1.002e18,
-  "http": "https://eth-mainnet.alchemyapi.io/v2",
+  "alchemy": "https://eth-mainnet.alchemyapi.io/v2",
   "infura": "https://mainnet.infura.io/v3"
 }
