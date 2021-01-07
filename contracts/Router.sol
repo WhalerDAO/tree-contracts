@@ -229,7 +229,7 @@ contract Router is ReentrancyGuard {
 		address[] calldata path,
 		address to,
 		uint deadline
-	) external returns (uint256[] memory amounts) {
+	) public override returns (uint256[] memory amounts) {
 		require(msg.sender == RESERVE, 'UniswapV2Router: not reserve');
 		require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
 		require(totalPledged >= amountIn, "Not enough tokens pledged to reach target price. Rebase postponed.");
