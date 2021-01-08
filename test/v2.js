@@ -12,15 +12,16 @@ require('dotenv').config();
 const config = require("../deploy-configs/v2/get-config");
 const { equal } = require('assert');
 
-// Load contracts
+// Import contracts
 const Router = artifacts.require('Router');
-
+const Oracle = artifacts.require('UniswapOracleManipulator');
 
 describe("TREE v2", () => {
     let deployer;
-    let gov;
+    let rebaser;
     let reserve;
     let router;
+    let oracle;
 
     var loadContract = function(contractName, deployer) {
         let rawdata = fs.readFileSync(`./contracts/abi/${contractName}.json`);
@@ -31,15 +32,18 @@ describe("TREE v2", () => {
     }
 
     before(async () => {
-        // deployer = new ethers.Wallet.createRandom().connect();
         let accounts = await ethers.getSigners();
         deployer = accounts[0]; 
 
         // Pre-deployed contracts
         const signer = await ethers.provider.getSigner(config.addresses.gov);
         reserve = loadContract('reserve', signer);
+        rebaser = loadContract('rebaser', signer);
 
-        // Deploy router
+        // Fund gov to submit transactions
+        deployer.sendTransaction({to:config.addresses.gov, value:ethers.utils.parseEther('10')});
+
+        // Deploy new contracts
         router = await Router.new(
             config.addresses.gov,
             config.addresses.gov, // CHARITY
@@ -52,38 +56,32 @@ describe("TREE v2", () => {
             config.targetPrice,
             BigNumber(config.targetPriceMultiplier).toFixed()
         );
+        oracle = await Oracle.new();
 
     });
 
-    contract("Router", async function() {
-        it("Should switch uniswap router used on reserve", async function () {
-            
-            // send funds to gov address
-            deployer.sendTransaction({to:config.addresses.gov, value:ethers.utils.parseEther('10')});
-
+    /*
+    contract("Reserve", async function() {
+        it("Should switch uniswap router used on reserve", async function () {           
             await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
-            
             // set uniswap router to point at our new Router.sol
-            const tx = await reserve.setUniswapRouter(router.address);
-            // let receipt = await tx.wait();
-            
-            // const event = tx.events.find((e) => e.event === "setUniswapRouter");
-            // expect(event).to.not.be.undefined;
+            let tx = await reserve.setUniswapRouter(router.address);
+            await tx.wait();
+            // make sure router was set
+            expect(reserve.uniswapRouter, router.address, `reserve.uniswapRouter not set to ${router.address}`);
+        });
+    });
+    */
 
-            // await expectEvent(receipt, 'SetUniswapRouter', {
-            //     _newValue: newRouterAddr
-            // });
-            // await expect(reserve.setUniswapRouter(router.address)).to.emit(router.address, "SetUniswapRouter");
-            
-            // make sure SetUniswapRouter(newRouterAddr) was emitted
-            // let uniswapRouter = reserve.uniswapRouter;
-            // expect(uniswapRouter), newRouterAddr, `${newRouterAddr}`);
-            // assert.equal(
-            //     await uniswapRouter, newRouterAddr,
-            //     `Router set to: ${uniswapRouter}`
-            // );
-
-
+    contract("Rebaser", async function () {
+        it("Should call rebase() after new router is set", async function () {
+            await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
+            // set reserve's uniswap router to our new Router 
+            await reserve.setUniswapRouter(router.address);
+            // set rebaser's oracle to our new Oracle
+            let tx = await rebaser.setOracle(oracle.address);
+            await tx.wait();
+            const tx2 = await rebaser.rebase();           
         });
     });
 });

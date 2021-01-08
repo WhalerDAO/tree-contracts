@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.6.6;
+import "@openzeppelin/contracts/math/SafeMath.sol";
 
-contract UniswapOracle {
 
+contract UniswapOracleManipulator {
+  using SafeMath for uint256;
   bool public updated;
 
   uint256 public price;
 
   constructor() public {
     updated = true;
-    price = 11 * 10**17;  // 1,1
+    // from `price1CumulativeLast` in https://etherscan.io/address/0xcf70a458b86607ed65f03409f84bcb869e62538d#readContract
+    price = 12 * 10**18;  // $1.20
   }
 
   function setPrice(uint256 _price) public {
@@ -20,13 +23,13 @@ contract UniswapOracle {
     return true;
   }
 
-  // note this will always return 0 before update has been called successfully for the first time.
+  // token1 = TREE
   function consult(address token, uint256 amountIn)
     external
     view
     returns (uint256 amountOut)
   {
-    amountOut = price;
+    amountOut = price.mul(amountIn);
   }
 
 }
