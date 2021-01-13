@@ -32,43 +32,22 @@ contract Router is ReentrancyGuard {
     event SetReserveToken(address token);
     event WithdrawToken(address token, address to, uint256 amount);
 
-    address constant private TREE = 0xCE222993A7E4818E0D12BC56376c5a60f92A5783;
-    address constant private RESERVE = 0x390a8Fb3fCFF0bB0fCf1F91c7E36db9c53165d17;
-    address constant private DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
-
     // Constants are from the original Reserve
     /// @notice precision for decimal calculations
     uint256 public constant PRECISION = 10**18;
 
-	address public gov;
-	address public charity;
-	uint256 public charityCut;
-	uint256 public rewardsCut;
-    uint256 public oldReserveBalance;
-
-    I_ERC20 public tree = I_ERC20(TREE);
-    I_ERC20 public reserveToken = I_ERC20(DAI);
-    I_TREERewards public lpRewards;
-    I_OmniBridge public omniBridge;
-
-	constructor(
-		address _gov,
-		address _charity,
-		address _lpRewards,
-		address _omniBridge,
-		uint256 _charityCut,
-		uint256 _rewardsCut,
-		uint256 _oldReserveBalance,
-		uint256 _treeSupply
-	) public {
-		gov = _gov;
-		charity = _charity;
-		lpRewards = I_TREERewards(_lpRewards);
-		omniBridge = I_OmniBridge(_omniBridge);
-		charityCut = _charityCut;
-		rewardsCut = _rewardsCut;
-		oldReserveBalance = _oldReserveBalance;
-	}
+    // Hardcoded data pulled from current reserve
+    // https://etherscan.io/address/0x390a8fb3fcff0bb0fcf1f91c7e36db9c53165d17#readContract
+    uint256 public charityCut = 100000000000000000;
+	uint256 public rewardsCut = 100000000000000000;
+    address public gov = 0xade20A93179003300529AfeF3853F9679234D929;
+    // address public charity = 0x703e0bEFF5d4f917b4b97ec8dC6D9ddbC90fb175;
+    // I_TREERewards public lpRewards = I_TREERewards(0xe7B7d02296A016e25a40F18DFD55626A64308fE3);
+    // I_OmniBridge public omniBridge = I_OmniBridge(0xc47192E48F75B612c792833C8b54Ad6BE319af90);
+    // Current DAI balance
+    uint256 public oldReserveBalance = 17621554639972284767269;
+    
+	constructor() public {}
 
 	function swapExactTokensForTokens(
 		uint amountIn,
@@ -88,15 +67,11 @@ contract Router is ReentrancyGuard {
 	}
 
 
-    function withdrawToken(address _token, address _to, uint256 _amount, bool max) external onlyGov {
+    function withdrawToken(address _token, address _to, uint256 _amount, bool max) external {
+        require(msg.sender == gov, "Router: not gov");
         if (max) {_amount = I_ERC20(_token).balanceOf(address(this));}
         I_ERC20(_token).transfer(_to, _amount);
         emit WithdrawToken(_token, _to, _amount);
-    }
-
-    function setReserveToken(address _newToken) external onlyGov {
-        reserveToken = I_ERC20(_newToken);
-        emit SetReserveToken(_newToken);
     }
 
 }
