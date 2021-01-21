@@ -62,7 +62,7 @@ contract Router is ReentrancyGuard {
 
         // move oldReserveBalance to charity by reversing the code that computes the charityCutAmount
         // NOTE: multiplying before dividing leads to less rounding :)
-        amounts[0] = 10000000;
+        amounts[0] = 0;
         amounts[1] = oldReserveBalance.mul(PRECISION.sub(rewardsCut)).div(charityCut);
 
         emit ReserveTransferred();
