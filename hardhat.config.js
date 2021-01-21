@@ -12,7 +12,16 @@ const { task } = require('hardhat/config');
 
 
 module.exports = {
-  solidity: "0.6.6",
+  solidity: {
+    compilers: [
+      {version: "0.6.6"} //,
+      // {version: "0.8.0"}
+    ]
+  },
+  mocha: {
+    enableTimeouts: false,
+    before_timeout: 60000 // Here is 2min but can be whatever timeout is suitable for you.
+  },
   networks: {
     hardhat: {
       forking: {
