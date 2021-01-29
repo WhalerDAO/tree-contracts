@@ -19,8 +19,7 @@ module.exports = {
     ]
   },
   mocha: {
-    enableTimeouts: false,
-    before_timeout: 60000 // Here is 2min but can be whatever timeout is suitable for you.
+    timeout: 60000 // Here is 2min but can be whatever timeout is suitable for you.
   },
   networks: {
     hardhat: {
