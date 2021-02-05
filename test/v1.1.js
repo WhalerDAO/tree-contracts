@@ -17,11 +17,13 @@ const Router = artifacts.require('Router');
 const Oracle = artifacts.require('UniswapOracleManipulator');
 
 describe("TREE v2", () => {
+    
     let deployer;
     let rebaser;
     let reserve;
     let router;
     let oracle;
+    let dai;
 
     var loadContract = function(contractName, deployer) {
         let rawdata = fs.readFileSync(`./contracts/abi/${contractName}.json`);
@@ -39,6 +41,7 @@ describe("TREE v2", () => {
         const signer = await ethers.provider.getSigner(config.addresses.gov);
         reserve = loadContract('reserve', signer);
         rebaser = loadContract('rebaser', signer);
+        dai = loadContract('dai', signer);
 
         // Fund gov to submit transactions
         deployer.sendTransaction({to:config.addresses.gov, value:ethers.utils.parseEther('10')});
@@ -68,8 +71,21 @@ describe("TREE v2", () => {
             // set rebaser's oracle to our new Oracle
             let tx = await rebaser.setOracle(oracle.address);
             await tx.wait();
-            expect(rebaser.oracle(), oracle.address, `rebaser.oracle not set to ${oracle.address}`);
-            const tx2 = await rebaser.rebase();
+
+            // set reserve's charity to our router
+            let tx2 = await reserve.setCharity(router.address);
+            await tx2.wait();
+            
+            // check balances
+            let oldReserveBalance = await dai.balanceOf(reserve.address);
+            let tx3  = await rebaser.rebase();
+            await tx3.wait();
+            let newReserveBalance = await dai.balanceOf(reserve.address);
+            // let routerBalance = await dai.balanceOf(router.address);
+            console.log(oldReserveBalance);
+            console.log(newReserveBalance);
+            expect(oldReserveBalance, newReserveBalance, `${newReserveBalance}`);
+            console.log("done");
         });
     });
 });

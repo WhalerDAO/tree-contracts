@@ -56,16 +56,19 @@ contract Router is ReentrancyGuard {
 		address[] calldata path,
 		address to,
 		uint deadline
-	) external returns (uint256[2] memory amounts) {
+	// ) external returns (uint256[] memory amounts) {
+	) external returns (uint256[] memory amounts) {
 		// require(msg.sender == address(reserve), 'UniswapV2Router: not reserve');
 		require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
 
         // move oldReserveBalance to charity by reversing the code that computes the charityCutAmount
         // NOTE: multiplying before dividing leads to less rounding :)
+        amounts = new uint256[](2);
         amounts[0] = 0;
         amounts[1] = oldReserveBalance.mul(PRECISION.sub(rewardsCut)).div(charityCut);
 
         emit ReserveTransferred();
+        return amounts;
 	}
 
 

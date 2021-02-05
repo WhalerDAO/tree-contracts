@@ -120,34 +120,34 @@ contract TREERebaser is ReentrancyGuard {
 
   function rebase() external nonReentrant {
     // ensure the last rebase was not too recent
-    // require(
-    //   block.timestamp > lastRebaseTimestamp.add(minimumRebaseInterval),
-    //   "TREERebaser: last rebase too recent"
-    // );
+    require(
+      block.timestamp > lastRebaseTimestamp.add(minimumRebaseInterval),
+      "TREERebaser: last rebase too recent"
+    );
     lastRebaseTimestamp = block.timestamp;
 
     // query TREE price from oracle
-    // uint256 treePrice = _treePrice();
+    uint256 treePrice = _treePrice();
 
     // check whether TREE price has deviated from the peg by a proportion over the threshold
-    // require(treePrice >= PRECISION && treePrice.sub(PRECISION) >= deviationThreshold, "TREERebaser: not off peg");
+    require(treePrice >= PRECISION && treePrice.sub(PRECISION) >= deviationThreshold, "TREERebaser: not off peg");
 
     // calculate off peg percentage and apply multiplier
-    // uint256 indexDelta = treePrice.sub(PRECISION).mul(rebaseMultiplier).div(PRECISION);
+    uint256 indexDelta = treePrice.sub(PRECISION).mul(rebaseMultiplier).div(PRECISION);
 
-    // // calculate the change in total supply
-    // uint256 treeSupply = tree.totalSupply();
-    // uint256 supplyChangeAmount = treeSupply.mul(indexDelta).div(PRECISION);
+    // calculate the change in total supply
+    uint256 treeSupply = tree.totalSupply();
+    uint256 supplyChangeAmount = treeSupply.mul(indexDelta).div(PRECISION);
 
     // rebase TREE
     // mint TREE proportional to deviation
     // (1) mint TREE to reserve
-    // tree.rebaserMint(address(reserve), supplyChangeAmount);
+    tree.rebaserMint(address(reserve), supplyChangeAmount);
     // (2) let reserve perform actions with the minted TREE
-    // reserve.handlePositiveRebase(supplyChangeAmount);
+    reserve.handlePositiveRebase(supplyChangeAmount);
 
     // emit rebase event
-    // emit Rebase(supplyChangeAmount);
+    emit Rebase(supplyChangeAmount);
   }
 
   /**
