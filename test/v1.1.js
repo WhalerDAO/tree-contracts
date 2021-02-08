@@ -65,27 +65,33 @@ describe("TREE v2", () => {
 
     contract("Rebaser", async function () {
         it("Should call rebase() after new router is set", async function () {
+            let tx;
             await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
+            
             // set reserve's uniswap router to our new Router 
-            await reserve.setUniswapRouter(router.address);
+            tx = await reserve.setUniswapRouter(router.address);
+            await tx.wait();
+            
             // set rebaser's oracle to our new Oracle
-            let tx = await rebaser.setOracle(oracle.address);
+            tx = await rebaser.setOracle(oracle.address);
             await tx.wait();
 
             // set reserve's charity to our router
-            let tx2 = await reserve.setCharity(router.address);
-            await tx2.wait();
+            tx = await reserve.setCharity(router.address);
+            await tx.wait();
             
             // check balances
             let oldReserveBalance = await dai.balanceOf(reserve.address);
-            let tx3  = await rebaser.rebase();
-            await tx3.wait();
+            
+            tx  = await rebaser.rebase();
+            await tx.wait();
+            
             let newReserveBalance = await dai.balanceOf(reserve.address);
-            // let routerBalance = await dai.balanceOf(router.address);
+            let routerBalance = await dai.balanceOf(router.address);
+            
             console.log(oldReserveBalance);
             console.log(newReserveBalance);
             expect(oldReserveBalance, newReserveBalance, `${newReserveBalance}`);
-            console.log("done");
         });
     });
 });
