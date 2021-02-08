@@ -12,7 +12,6 @@ contract UniswapOracleManipulator {
   constructor() public {
     updated = true;
     // from `price1CumulativeLast` in https://etherscan.io/address/0xcf70a458b86607ed65f03409f84bcb869e62538d#readContract
-    // price = 12 * 10**18;  // $1.20
     price = 108 * 10**16;  // $1.08
   }
 
