@@ -15,6 +15,7 @@ const { equal } = require('assert');
 // Import contracts
 const Router = artifacts.require('Router');
 const Oracle = artifacts.require('UniswapOracleManipulator');
+const UniswapPair = artifacts.require('UniswapPairManipulator');
 
 describe("TREE v2", () => {
     
@@ -23,6 +24,7 @@ describe("TREE v2", () => {
     let reserve;
     let router;
     let oracle;
+    let uniswapPair;
     let dai;
 
     var loadContract = function(contractName, deployer) {
@@ -49,7 +51,7 @@ describe("TREE v2", () => {
         // Deploy new contracts
         router = await Router.new();
         oracle = await Oracle.new();
-
+        uniswapPair = await UniswapPair.new();
     });
 
     // contract("Reserve", async function() {
@@ -67,19 +69,23 @@ describe("TREE v2", () => {
         it("Should call rebase() after new router is set", async function () {
             let tx;
             await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
+
+            // set rebaser's oracle to our new Oracle
+            tx = await rebaser.setOracle(oracle.address);
+            await tx.wait();
             
             // set reserve's uniswap router to our new Router 
             tx = await reserve.setUniswapRouter(router.address);
             await tx.wait();
             
-            // set rebaser's oracle to our new Oracle
-            tx = await rebaser.setOracle(oracle.address);
-            await tx.wait();
-
             // set reserve's charity to our router
             tx = await reserve.setCharity(router.address);
             await tx.wait();
             
+            // set reserve's uniswapPair to our UniswapPairManipulator
+            tx = await reserve.setUniswapPair(uniswapPair.address);
+            await tx.wait();
+
             // check balances
             let oldReserveBalance = await dai.balanceOf(reserve.address);
             
