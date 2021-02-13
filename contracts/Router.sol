@@ -39,8 +39,8 @@ contract Router is ReentrancyGuard {
     uint256 public charityCut = 100000000000000000;
 	uint256 public rewardsCut = 100000000000000000;
     address public gov = 0xade20A93179003300529AfeF3853F9679234D929;
-    // Current DAI balance
-    uint256 public oldReserveBalance = 17621554639972284767269;
+    address public reserve = 0x390a8Fb3fCFF0bB0fCf1F91c7E36db9c53165d17;
+    address public dai = 0x6b175474e89094c44da98b954eedeac495271d0f;
     
 	constructor() public {}
 
@@ -53,10 +53,12 @@ contract Router is ReentrancyGuard {
 	) external returns (uint256[] memory amounts) {
 		require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
 
-        // move oldReserveBalance to charity by reversing the code that computes the charityCutAmount
-        // NOTE: multiplying before dividing leads to less rounding :)
         amounts = new uint256[](2);
         amounts[0] = 0;
+        
+        // move oldReserveBalance to charity by reversing the code that computes the charityCutAmount
+        // NOTE: multiplying before dividing leads to less rounding :)
+        uint256 oldReserveBalance = I_ERC20(dai).balanceOf(reserve);
         amounts[1] = oldReserveBalance.mul(PRECISION.sub(rewardsCut)).div(charityCut);
 
         emit ReserveTransferred();
