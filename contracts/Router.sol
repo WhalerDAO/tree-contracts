@@ -40,7 +40,7 @@ contract Router is ReentrancyGuard {
 	uint256 public rewardsCut = 100000000000000000;
     address public gov = 0xade20A93179003300529AfeF3853F9679234D929;
     address public reserve = 0x390a8Fb3fCFF0bB0fCf1F91c7E36db9c53165d17;
-    address public dai = 0x6b175474e89094c44da98b954eedeac495271d0f;
+    address public dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     
 	constructor() public {}
 

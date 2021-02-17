@@ -16,23 +16,25 @@ const { equal } = require('assert');
 const Router = artifacts.require('Router');
 const Oracle = artifacts.require('UniswapOracleManipulator');
 const UniswapPair = artifacts.require('UniswapPairManipulator');
+const OmniBridge = artifacts.require('OmniBridgeManipulator');
 
-describe("TREE v2", () => {
+describe("TREE v1.1", () => {
     
     let deployer;
+    let dai;
     let rebaser;
     let reserve;
     let router;
     let oracle;
     let uniswapPair;
-    let dai;
+    let omniBridge;
 
     var loadContract = function(contractName, deployer) {
         let rawdata = fs.readFileSync(`./contracts/abi/${contractName}.json`);
         let json = JSON.parse(rawdata);
         let address = config.addresses[contractName];
         let contract = new ethers.Contract(address, json, deployer);
-        return contract
+        return contract;
     }
 
     before(async () => {
@@ -41,9 +43,9 @@ describe("TREE v2", () => {
 
         // Pre-deployed contracts
         const signer = await ethers.provider.getSigner(config.addresses.gov);
-        reserve = loadContract('reserve', signer);
-        rebaser = loadContract('rebaser', signer);
         dai = loadContract('dai', signer);
+        rebaser = loadContract('rebaser', signer);
+        reserve = loadContract('reserve', signer);
 
         // Fund gov to submit transactions
         deployer.sendTransaction({to:config.addresses.gov, value:ethers.utils.parseEther('10')});
@@ -52,73 +54,40 @@ describe("TREE v2", () => {
         router = await Router.new();
         oracle = await Oracle.new();
         uniswapPair = await UniswapPair.new();
+        omniBridge = await OmniBridge.new();
     });
 
-    // contract("Reserve", async function() {
-    //     it("Should switch uniswap router used on reserve", async function () {           
-    //         await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
-    //         // set uniswap router to point at our new Router.sol
-    //         let tx = await reserve.setUniswapRouter(router.address);
-    //         await tx.wait();
-    //         // make sure router was set
-    //         expect(reserve.uniswapRouter, router.address, `reserve.uniswapRouter not set to ${router.address}`);
-    //     });
-    // });
+    it("", async function () {
+        let tx;
+        await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
 
-    contract("Rebaser", async function () {
-        it("Should call rebase() after new router is set", async function () {
-            let tx;
-            await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
+        // set rebaser's oracle to our new Oracle
+        tx = await rebaser.setOracle(oracle.address);
+        await tx.wait();
+        
+        // set reserve's uniswap router to our new Router 
+        tx = await reserve.setUniswapRouter(router.address);
+        await tx.wait();
+        
+        // set reserve's charity to our router
+        tx = await reserve.setCharity(router.address);
+        await tx.wait();
+        
+        // set reserve's uniswapPair to our UniswapPairManipulator
+        tx = await reserve.setUniswapPair(uniswapPair.address);
+        await tx.wait();
 
-            // set rebaser's oracle to our new Oracle
-            tx = await rebaser.setOracle(oracle.address);
-            await tx.wait();
-            
-            // set reserve's uniswap router to our new Router 
-            tx = await reserve.setUniswapRouter(router.address);
-            await tx.wait();
-            
-            // set reserve's charity to our router
-            tx = await reserve.setCharity(router.address);
-            await tx.wait();
-            
-            // set reserve's uniswapPair to our UniswapPairManipulator
-            tx = await reserve.setUniswapPair(uniswapPair.address);
-            await tx.wait();
+        // set reserve's omniBridge to our OmniBridgeManipulator
+        tx = await reserve.setOmniBridge(omniBridge.address);
+        await tx.wait();
 
-            // check balances
-            let oldReserveBalance = await dai.balanceOf(reserve.address);
-            
-            tx  = await rebaser.rebase();
-            await tx.wait();
-            
-            let newReserveBalance = await dai.balanceOf(reserve.address);
-            let routerBalance = await dai.balanceOf(router.address);
-            
-            console.log(oldReserveBalance);
-            console.log(newReserveBalance);
-            expect(oldReserveBalance, newReserveBalance, `${newReserveBalance}`);
-        });
+        // check balances
+        console.log(`\nReserve DAI balance: ${await dai.balanceOf(reserve.address)}`);
+        console.log('Rebasing...');
+        tx  = await rebaser.rebase();
+        await tx.wait();
+        console.log('Done');
+        console.log(`Reserve DAI balance: ${await dai.balanceOf(reserve.address)}`);
+        console.log(`Router DAI balance: ${await dai.balanceOf(router.address)}`);
     });
 });
-
-
-/*
-var rebaser = loadContract("rebaser", deployer);
-// var charity = loadContract("charity", deployer);
-var lpRewards = loadContract('lpRewards', deployer);
-var omniBridge = loadContract('omniBridge', deployer);
-
-var tree = loadContract("tree", deployer);
-var dai = loadContract("dai", deployer);
-
-const setNextBlockTime = async time => provider.send('evm_setNextBlockTimestamp', [time]);
-const mineNextBlock = async () => provider.send('evm_mine');
-
-const impersonateAccount = async address => provider.send('hardhat_impersonateAccount', [address]);
-const stopImpersonatingAccount = async address => provider.send('hardhat_stopImpersonatingAccount', [address]);
-
-const takeSnapshot = async () => provider.send('evm_snapshot');
-const revertToSnapshot = async id => provider.send('evm_revert', [id]);
-const reset = async () => provider.send('hardhat_reset');
-*/
