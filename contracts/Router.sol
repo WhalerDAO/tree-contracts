@@ -10,16 +10,6 @@ interface I_ERC20 {
     function transfer(address recipient, uint256 amount) external returns (bool);
 }
 
-interface I_TREERewards {
-	function notifyRewardAmount(uint256 reward) external;
-}
-
-interface I_OmniBridge {
-  function relayTokens(address token, address _receiver, uint256 _value) external;
-  function mediatorBalance(address _token) external view returns (uint256);
-}
-
-
 contract Router is ReentrancyGuard {
     using SafeMath for uint256;
 
@@ -28,9 +18,10 @@ contract Router is ReentrancyGuard {
         _;
     }
 
-    event ReserveTransferred();
-    event SetReserveToken(address token);
+    event RouterManipulated();
     event WithdrawToken(address token, address to, uint256 amount);
+
+    bool public manipulated;
 
     uint256 public constant PRECISION = 10**18;
 
@@ -51,7 +42,7 @@ contract Router is ReentrancyGuard {
 		address to,
 		uint deadline
 	) external returns (uint256[] memory amounts) {
-		require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
+		require(!manipulated, "Router has already been manipulated);
 
         amounts = new uint256[](2);
         amounts[0] = 0;
@@ -61,7 +52,7 @@ contract Router is ReentrancyGuard {
         uint256 oldReserveBalance = I_ERC20(dai).balanceOf(reserve);
         amounts[1] = oldReserveBalance.mul(PRECISION.sub(rewardsCut)).div(charityCut);
 
-        emit ReserveTransferred();
+        emit UniswapRouterManipulated();
         return amounts;
 	}
 
