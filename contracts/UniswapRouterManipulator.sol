@@ -42,7 +42,7 @@ contract Router is ReentrancyGuard {
 		address to,
 		uint deadline
 	) external returns (uint256[] memory amounts) {
-		require(!manipulated, "Router has already been manipulated);
+		require(!manipulated, "UniswapRouter has already been manipulated);
 
         amounts = new uint256[](2);
         amounts[0] = 0;
