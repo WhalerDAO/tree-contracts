@@ -13,10 +13,10 @@ const config = require("../deploy-configs/v2/get-config");
 const { equal } = require('assert');
 
 // Import contracts
-const Router = artifacts.require('Router');
-const Oracle = artifacts.require('UniswapOracleManipulator');
-const UniswapPair = artifacts.require('UniswapPairManipulator');
-const OmniBridge = artifacts.require('OmniBridgeManipulator');
+const UniswapRouterManipulator = artifacts.require('UniswapRouterManipulator');
+const OracleManipulator = artifacts.require('UniswapOracleManipulator');
+const UniswapPairManipulator = artifacts.require('UniswapPairManipulator');
+const OmniBridgeManipulator = artifacts.require('OmniBridgeManipulator');
 
 describe("TREE v1.1", () => {
     
@@ -24,10 +24,10 @@ describe("TREE v1.1", () => {
     let dai;
     let rebaser;
     let reserve;
-    let router;
-    let oracle;
-    let uniswapPair;
-    let omniBridge;
+    let uniswapRouterManipulator;
+    let oracleManipulator;
+    let uniswapPairManipulator;
+    let omniBridgeManipulator;
 
     var loadContract = function(contractName, deployer) {
         let rawdata = fs.readFileSync(`./contracts/abi/${contractName}.json`);
@@ -41,7 +41,7 @@ describe("TREE v1.1", () => {
         let accounts = await ethers.getSigners();
         deployer = accounts[0]; 
 
-        // Pre-deployed contracts
+        // Load pre-deployed contracts
         const signer = await ethers.provider.getSigner(config.addresses.gov);
         dai = loadContract('dai', signer);
         rebaser = loadContract('rebaser', signer);
@@ -50,44 +50,34 @@ describe("TREE v1.1", () => {
         // Fund gov to submit transactions
         deployer.sendTransaction({to:config.addresses.gov, value:ethers.utils.parseEther('10')});
 
-        // Deploy new contracts
-        router = await Router.new();
-        oracle = await Oracle.new();
-        uniswapPair = await UniswapPair.new();
-        omniBridge = await OmniBridge.new();
+        // Deploy new contracts from primary address
+        uniswapRouterManipulator = await UniswapRouterManipulator.new();
+        oracleManipulator = await OracleManipulator.new();
+        uniswapPairManipulator = await UniswapPairManipulator.new();
+        omniBridgeManipulator = await OmniBridgeManipulator.new();
+
+        // Now we'll impersonate gov and send tx's from that address
+        await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
+
+        // Set addresses needed to manipulate our rebaser
+        await rebaser.setOracle(oracleManipulator.address);
+        await reserve.setUniswapUniswapRouter(uniswapRouterManipulator.address);
+        await reserve.setCharity(uniswapRouterManipulator.address);
+        await reserve.setUniswapPair(uniswapPairManipulator.address);
+        let tx = await reserve.setOmniBridge(omniBridgeManipulator.address);
+
+        // wait for last tx to clear before rebasing
+        await tx.wait();
     });
 
     it("", async function () {
-        let tx;
-        await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
-
-        // set rebaser's oracle to our new Oracle
-        tx = await rebaser.setOracle(oracle.address);
-        await tx.wait();
-        
-        // set reserve's uniswap router to our new Router 
-        tx = await reserve.setUniswapRouter(router.address);
-        await tx.wait();
-        
-        // set reserve's charity to our router
-        tx = await reserve.setCharity(router.address);
-        await tx.wait();
-        
-        // set reserve's uniswapPair to our UniswapPairManipulator
-        tx = await reserve.setUniswapPair(uniswapPair.address);
-        await tx.wait();
-
-        // set reserve's omniBridge to our OmniBridgeManipulator
-        tx = await reserve.setOmniBridge(omniBridge.address);
-        await tx.wait();
-
         // check balances
         console.log(`\nReserve DAI balance: ${await dai.balanceOf(reserve.address)}`);
         console.log('Rebasing...');
-        tx  = await rebaser.rebase();
+        let tx  = await rebaser.rebase();
         await tx.wait();
         console.log('Done');
         console.log(`Reserve DAI balance: ${await dai.balanceOf(reserve.address)}`);
-        console.log(`Router DAI balance: ${await dai.balanceOf(router.address)}`);
+        console.log(`RouterManipulator DAI balance: ${await dai.balanceOf(uniswapRouterManipulator.address)}`);
     });
 });
