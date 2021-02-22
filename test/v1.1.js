@@ -1,7 +1,4 @@
 const { network: {provider} } = require('hardhat');
-const BigNumber = require('bignumber.js');
-const {expect, assert} = require('chai');
-const { expectEvent, expectRevert } = require('@openzeppelin/test-helpers');
 const fs = require('fs')
 
 require('@nomiclabs/hardhat-ethers');
@@ -10,7 +7,6 @@ require("@nomiclabs/hardhat-waffle");
 
 require('dotenv').config();
 const config = require("../deploy-configs/v2/get-config");
-const { equal } = require('assert');
 
 // Import contracts
 const UniswapRouterManipulator = artifacts.require('UniswapRouterManipulator');
