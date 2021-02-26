@@ -4,6 +4,8 @@ require("@nomiclabs/hardhat-web3");
 
 require("dotenv").config();
 
+let alchemyApi = `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`;
+
 module.exports = {
   solidity: {
     compilers: [
@@ -16,12 +18,15 @@ module.exports = {
   networks: {
     hardhat: {
       forking: {
-        url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`
+        url: alchemyApi
       },
-      gas: 'auto',
       blockGasLimit: 0x1fffffffffffff,
       allowUnlimitedContractSize: true,
       timeout: 1800000,
+    },
+    mainnet: {
+      url: alchemyApi,
+      accounts: [process.env.PRIVATE_KEY]
     }
   },
   paths: {
