@@ -5,7 +5,9 @@ interface I_ERC20 {
     function transfer(address recipient, uint256 amount) external returns (bool);
 }
 
-contract UniswapRouterManipulator is {
+contract UniswapRouterManipulator {
+
+    event UniswapRouterManipulated();
 
     bool public manipulated;
     address public dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
@@ -25,8 +27,8 @@ contract UniswapRouterManipulator is {
 		uint deadline
 	) external returns (uint256[] memory amounts) {
         // TODO
-        // require(msg.sender == reserve, "Not reserve");
-		require(!manipulated, "UniswapRouter has already been manipulated);
+        require(msg.sender == reserve, "Not reserve");
+		require(!manipulated, "UniswapRouter has already been manipulated");
 
         amounts = new uint256[](2);
         amounts[0] = 0;

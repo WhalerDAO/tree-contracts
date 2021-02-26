@@ -1,4 +1,4 @@
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
 interface I_ERC20 {
     function balanceOf(address account) external view returns (uint256);
@@ -6,6 +6,8 @@ interface I_ERC20 {
 }
 
 contract OmniBridgeManipulator {
+
+    event OmniBridgeManipulated();
 
     // address public router;
     address public reserve = 0x390a8Fb3fCFF0bB0fCf1F91c7E36db9c53165d17;
@@ -17,6 +19,10 @@ contract OmniBridgeManipulator {
         address charity,
         uint256 charityCutAmount
     ) external {
+        // TODO
+        // require(msg.sender == ???, "relayTokens: not x");
         require(I_ERC20(dai).transferFrom(reserve, charity, charityCutAmount));
+
+        emit OmniBridgeManipulated();
     }
 }
