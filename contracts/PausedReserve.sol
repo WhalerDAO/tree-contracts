@@ -15,7 +15,7 @@ contract PausedReserve {
     constructor() {}
 
     function withdraw(address to, uint256 amount, bool max) external {
-        require(msg.sender == address(gov), "Router: not gov");
+        require(msg.sender == gov, "PausedReserve: not gov");
         if (max) {amount = I_ERC20(dai).balanceOf(address(this));}
         require(
             I_ERC20(dai).transfer(to, amount),

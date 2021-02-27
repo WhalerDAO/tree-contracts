@@ -19,7 +19,7 @@ const OmniBridgeManipulator = artifacts.require('OmniBridgeManipulator');
 describe("TREE v1.1", () => {
     
     let tx;
-    let deployer;
+    let user;
     let dai;
     let rebaser;
     let reserve;
@@ -39,7 +39,7 @@ describe("TREE v1.1", () => {
 
     before(async () => {
         let accounts = await ethers.getSigners();
-        deployer = accounts[0]; 
+        user = accounts[0]; 
 
         // Load pre-deployed contracts
         const signer = await ethers.provider.getSigner(config.addresses.gov);
@@ -47,18 +47,16 @@ describe("TREE v1.1", () => {
         rebaser = loadContract('rebaser', signer);
         reserve = loadContract('reserve', signer);
 
-        // Fund gov to submit transactions
-        deployer.sendTransaction({to:config.addresses.gov, value:ethers.utils.parseEther('10')});
+        // Fund gov to submit transactions and impersonate the gov address
+        await user.sendTransaction({to:config.addresses.gov, value:ethers.utils.parseEther('10')});
+        await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
 
-        // Deploy new contracts from primary address
+        // Deploy new contracts
         pausedReserve = await PausedReserve.new();
         uniswapRouterManipulator = await UniswapRouterManipulator.new();
         oracleManipulator = await OracleManipulator.new();
         uniswapPairManipulator = await UniswapPairManipulator.new();
         omniBridgeManipulator = await OmniBridgeManipulator.new();
-
-        // Now we'll impersonate gov and send tx's from that address
-        await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
 
         // Set addresses needed to manipulate the reserve & rebaser contracts
         await reserve.setCharity(pausedReserve.address);
@@ -67,48 +65,38 @@ describe("TREE v1.1", () => {
         await reserve.setUniswapPair(uniswapPairManipulator.address);
         tx = await reserve.setOmniBridge(omniBridgeManipulator.address);
 
-        // wait for last tx to clear before rebasing
+        // wait for last tx to clear
         await tx.wait();
     });
 
     it("Manipulated rebase sends all DAI from reserve v1.0 to reserve v1.1", async function () {
+        
         let oldReserveDaiBalance = await dai.balanceOf(reserve.address);
-
         tx = await rebaser.rebase();
         await tx.wait();
 
         let newReserveDaiBalance = await dai.balanceOf(pausedReserve.address);
-
         expect(oldReserveDaiBalance).to.equal(newReserveDaiBalance);
     });
 
-    it("Reserve v1.1 can withdraw a defined amount of DAI", async function () {
-        tx = await rebaser.rebase();
-        await tx.wait();
+    it("Reserve v1.1 can withdraw a defined amount of DAI if tx sent from gov", async function () {
         
+        await pausedReserve.withdraw(user.address, 123456789, false, {from:config.addresses.gov});
+        let userDaiBalance = await dai.balanceOf(user.address);
+        
+        expect(userDaiBalance).to.equal(123456789);
+    });
+
+    it("Reserve v1.1 can withdraw max DAI if tx sent from gov", async function () { 
         let newReserveDaiBalance = await dai.balanceOf(pausedReserve.address);
-
-        await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
- 
-        tx = await pausedReserve.withdraw(deployer.address, 0, true);
-        await tx.wait();
-
-        let deployerDaiBalance = await dai.balanceOf(deployer.address);
-        
-        expect(newReserveDaiBalance).to.equal(deployerDaiBalance);
-    });
-
-    it("Reserve v1.1 can withdraw max DAI if tx sent from gov", async function () {
-        tx = await rebaser.rebase();
-        await tx.wait();
         
         await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
- 
-        tx = await pausedReserve.withdraw(deployer.address, 123456789, false);
-        await tx.wait();
+        await pausedReserve.withdraw(user.address, 0, true, {from:config.addresses.gov});
 
-        let deployerDaiBalance = await dai.balanceOf(deployer.address);
-        
-        expect(deployerDaiBalance).to.equal(123456789);
+        let userDaiBalance = await dai.balanceOf(user.address);
+
+        expect(newReserveDaiBalance).to.equal(userDaiBalance);
     });
+
+    
 });
