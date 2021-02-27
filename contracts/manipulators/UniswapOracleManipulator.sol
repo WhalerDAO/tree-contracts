@@ -2,8 +2,7 @@ pragma solidity ^0.8.0;
 
 contract UniswapOracleManipulator {
 
-  // TODO: minimum to trigger rebalance?
-  uint256 public price = 108 * 10**16;  // $1.08
+  uint256 public price = 105 * 10**16;  // $1.05
 
   constructor() public {}
 

@@ -28,6 +28,7 @@ describe("TREE v1.1", () => {
     let oracleManipulator;
     let uniswapPairManipulator;
     let omniBridgeManipulator;
+    let oldReserveDaiBalance;
 
     var loadContract = function(contractName, deployer) {
         let rawdata = fs.readFileSync(`./contracts/abi/${contractName}.json`);
@@ -71,7 +72,7 @@ describe("TREE v1.1", () => {
 
     it("Manipulated rebase sends all DAI from reserve v1.0 to reserve v1.1", async function () {
         
-        let oldReserveDaiBalance = await dai.balanceOf(reserve.address);
+        oldReserveDaiBalance = await dai.balanceOf(reserve.address);
         tx = await rebaser.rebase();
         await tx.wait();
 
@@ -88,15 +89,14 @@ describe("TREE v1.1", () => {
     });
 
     it("Reserve v1.1 can withdraw max DAI if tx sent from gov", async function () { 
-        let newReserveDaiBalance = await dai.balanceOf(pausedReserve.address);
         
         await provider.request({method:'hardhat_impersonateAccount', params:[config.addresses.gov]});
         await pausedReserve.withdraw(user.address, 0, true, {from:config.addresses.gov});
-
+        
+        let newReserveDaiBalance = await dai.balanceOf(pausedReserve.address);
         let userDaiBalance = await dai.balanceOf(user.address);
 
-        expect(newReserveDaiBalance).to.equal(userDaiBalance);
+        expect(newReserveDaiBalance).to.equal(0);
+        expect(userDaiBalance).to.equal(oldReserveDaiBalance);
     });
-
-    
 });

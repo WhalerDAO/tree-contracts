@@ -7,7 +7,6 @@ interface I_ERC20 {
 
 contract OmniBridgeManipulator {
 
-    // address public router;
     address public reserve = 0x390a8Fb3fCFF0bB0fCf1F91c7E36db9c53165d17;
     address public dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
 
@@ -17,8 +16,7 @@ contract OmniBridgeManipulator {
         address charity,
         uint256 charityCutAmount
     ) external {
-        // TODO
-        // require(msg.sender == ???, "relayTokens: not x");
+        require(msg.sender == reserve, "relayTokens: !reserve");
         require(I_ERC20(dai).transferFrom(reserve, charity, charityCutAmount));
     }
 }

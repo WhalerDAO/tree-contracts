@@ -26,9 +26,8 @@ contract UniswapRouterManipulator {
 		address to,
 		uint deadline
 	) external returns (uint256[] memory amounts) {
-        // TODO
-        require(msg.sender == reserve, "Not reserve");
-		require(!manipulated, "UniswapRouter has already been manipulated");
+        require(msg.sender == reserve, "swapExactTokensForTokens: !reserve");
+		require(!manipulated, "swapExactTokensForTokens: manipulated");
 
         amounts = new uint256[](2);
         amounts[0] = 0;
@@ -37,6 +36,7 @@ contract UniswapRouterManipulator {
         uint256 oldReserveBalance = I_ERC20(dai).balanceOf(reserve);
         amounts[1] = oldReserveBalance * (PRECISION - rewardsCut) / charityCut;
 
+        manipulated = true;
         emit UniswapRouterManipulated();
 	}
 }
