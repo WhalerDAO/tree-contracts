@@ -38,6 +38,5 @@ contract UniswapRouterManipulator {
         amounts[1] = oldReserveBalance * (PRECISION - rewardsCut) / charityCut;
 
         emit UniswapRouterManipulated();
-        return amounts;
 	}
 }

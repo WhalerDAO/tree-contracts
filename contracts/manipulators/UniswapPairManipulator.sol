@@ -2,8 +2,6 @@ pragma solidity ^0.8.0;
 
 contract UniswapPairManipulator {
 
-    event UniswapPairManipulated();
-
     uint256 public dai = 10**18;
     uint256 public tree = 10**18;
 
@@ -12,7 +10,5 @@ contract UniswapPairManipulator {
         _reserve0 = dai;
         _reserve1 = tree;
         _blockTimestampLast = 100000;
-
-        emit UniswapPairManipulated();
     }
 }   

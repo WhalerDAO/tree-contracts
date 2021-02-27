@@ -8,9 +8,13 @@ let alchemyApi = `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY
 
 module.exports = {
   solidity: {
-    compilers: [
-      {version: "0.8.0"}
-    ]
+    compilers: [{
+      version: "0.8.0",
+      optimizer: {
+        enabled: true,
+        runs: 1000
+        }
+    }]
   },
   mocha: {
     timeout: 60000 // Here is 2min but can be whatever timeout is suitable for you.
