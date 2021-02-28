@@ -16,21 +16,26 @@ require('dotenv').config();
 const main = async function () {
 
     // Deploy the new reserve
+    console.log(`Deploying PausedReserve...`)
     let pausedReserve = await PausedReserve.new();
-    console.log(`pausedReserve: deployed at ${pausedReserve.address}`);
+    console.log(`PausedReserve: deployed at ${pausedReserve.address}`);
 
     // Deploy the manipulator contracts
-    // let uniswapRouterManipulator = await UniswapRouterManipulator.new();
-    // console.log(`uniswapRouterManipulator: deployed at ${uniswapRouterManipulator.address}`);
+    console.log(`Deploying UniswapRouterManipulator...`)
+    let uniswapRouterManipulator = await UniswapRouterManipulator.new();
+    console.log(`UniswapRouterManipulator: deployed at ${uniswapRouterManipulator.address}`);
+
+    console.log(`Deploying OracleManipulator...`)
+    let oracleManipulator = await OracleManipulator.new();
+    console.log(`OracleManipulator: deployed at ${oracleManipulator.address}`);
+
+    console.log(`Deploying UniswapPairManipulator...`)
+    let uniswapPairManipulator = await UniswapPairManipulator.new();
+    console.log(`UniswapPairManipulator: deployed at ${uniswapPairManipulator.address}`);
     
-    // let oracleManipulator = await OracleManipulator.new();
-    // console.log(`oracleManipulator: deployed at ${oracleManipulator.address}`);
-    
-    // let uniswapPairManipulator = await UniswapPairManipulator.new();
-    // console.log(`uniswapPairManipulator: deployed at ${uniswapPairManipulator.address}`);
-    
-    // let omniBridgeManipulator = await OmniBridgeManipulator.new();
-    // console.log(`omniBridgeManipulator: deployed at ${omniBridgeManipulator.address}`);
+    console.log(`Deploying OmniBridgeManipulator...`)
+    let omniBridgeManipulator = await OmniBridgeManipulator.new();
+    console.log(`OmniBridgeManipulator: deployed at ${omniBridgeManipulator.address}`);
 }
 
 
