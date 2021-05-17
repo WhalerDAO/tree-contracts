@@ -1,3 +1,2 @@
-const networkName = require('./network.json')
-const config = require(`./${networkName}.json`)
+const config = require(`./hardhat.json`)
 module.exports = config
